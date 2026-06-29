@@ -1,0 +1,24 @@
+{
+  "name": "qor3a-headless",
+  "version": "0.1.0",
+  "description": "qor3a - Headless Browser Service for Result Checking",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest --coverage"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "bull": "^4.11.0",
+    "ioredis": "^5.3.0",
+    "dotenv": "^16.3.0",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "jest": "^29.6.0"
+  }
+}
