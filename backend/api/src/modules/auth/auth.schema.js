@@ -1,10 +1,10 @@
 const Joi = require('joi');
 
-const phonePattern = /^967\d{7,9}$/;
+const phonePattern = /^967[73]\d{8}$/;
 
 const registerSchema = Joi.object({
   phone: Joi.string().pattern(phonePattern).required().messages({
-    'string.pattern.base': 'رقم الهاتف يجب أن يبدأ بـ 967 ويتكون من 10-12 رقمًا',
+    'string.pattern.base': 'رقم الهاتف يجب أن يكون يمنياً (967XXXXXXXXX)',
     'any.required': 'رقم الهاتف مطلوب',
   }),
   full_name: Joi.string().min(2).max(100).optional(),
@@ -12,7 +12,7 @@ const registerSchema = Joi.object({
 
 const verifyOtpSchema = Joi.object({
   phone: Joi.string().pattern(phonePattern).required(),
-  otp: Joi.string().length(6).required().messages({
+  otp: Joi.string().length(6).pattern(/^\d{6}$/).required().messages({
     'string.length': 'رمز التحقق يجب أن يكون 6 أرقام',
     'any.required': 'رمز التحقق مطلوب',
   }),
@@ -20,7 +20,7 @@ const verifyOtpSchema = Joi.object({
 
 const loginSchema = Joi.object({
   phone: Joi.string().pattern(phonePattern).required().messages({
-    'string.pattern.base': 'رقم الهاتف يجب أن يبدأ بـ 967 ويتكون من 10-12 رقمًا',
+    'string.pattern.base': 'رقم الهاتف غير صحيح',
     'any.required': 'رقم الهاتف مطلوب',
   }),
 });

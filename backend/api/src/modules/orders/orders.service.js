@@ -1,7 +1,7 @@
 const db = require('../../database/db');
 const orderModel = require('./orders.model');
 const { AppError } = require('../../common/error-handler');
-const { assertTransition } = require('../../common/state-machine');
+const { assertTransition, checkGuard } = require('../../common/state-machine');
 const storage = require('../../common/storage');
 const notifier = require('../../common/notifier');
 
@@ -29,16 +29,20 @@ const create = async (userId, data) => {
     gender: data.personal_data.gender,
     birth_date: data.personal_data.birth_date,
     birth_city: data.personal_data.birth_city,
-    birth_country: data.personal_data.birth_country,
+    birth_country: data.personal_data.birth_country || 'YEMEN',
+    country_of_eligibility: data.personal_data.country_of_eligibility || 'YEMEN',
     marital_status: data.personal_data.marital_status,
+    passport_number: data.personal_data.passport_number,
+    passport_expiry: data.personal_data.passport_expiry,
     spouse_data: data.spouse_data || {},
     children_data: data.children_data || [],
     email: data.contact.email || null,
     phone: data.contact.phone,
+    alt_phone: data.contact.alt_phone || null,
     address_line1: data.address.street,
     address_line2: data.address.district || null,
     city: data.address.city,
-    country: data.address.country,
+    country: data.address.country || 'YEMEN',
     postal_code: data.address.postal_code || null,
     district: data.address.district || null,
   });
@@ -105,6 +109,9 @@ const updatePersonalData = async (orderId, userId, data) => {
   if (order.user_id !== userId) {
     throw new AppError('Forbidden', 403, 'FORBIDDEN');
   }
+  if (order.status === 'cancelled') {
+    throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  }
   if (!['draft', 'needs_correction'].includes(order.status)) {
     throw new AppError('Cannot edit data in current status', 409, 'INVALID_STATE');
   }
@@ -119,7 +126,10 @@ const updatePersonalData = async (orderId, userId, data) => {
       birth_date: data.personal_data.birth_date,
       birth_city: data.personal_data.birth_city,
       birth_country: data.personal_data.birth_country,
+      country_of_eligibility: data.personal_data.country_of_eligibility,
       marital_status: data.personal_data.marital_status,
+      passport_number: data.personal_data.passport_number,
+      passport_expiry: data.personal_data.passport_expiry,
     });
   }
   if (data.spouse_data !== undefined) updateFields.spouse_data = data.spouse_data;
@@ -135,6 +145,7 @@ const updatePersonalData = async (orderId, userId, data) => {
   if (data.contact) {
     updateFields.email = data.contact.email || null;
     updateFields.phone = data.contact.phone;
+    updateFields.alt_phone = data.contact.alt_phone || null;
   }
 
   if (Object.keys(updateFields).length > 0) {
@@ -142,6 +153,9 @@ const updatePersonalData = async (orderId, userId, data) => {
   }
 
   const newStatus = order.status === 'draft' ? 'data_entry_complete' : order.status;
+  if (order.status === 'draft') {
+    assertTransition('draft', 'data_entry_complete', 'client');
+  }
   await orderModel.update(orderId, { status: newStatus });
 
   return orderModel.findById(orderId);
@@ -151,6 +165,9 @@ const uploadPhoto = async (orderId, userId, file) => {
   const order = await orderModel.findById(orderId);
   if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
   if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
+  if (order.status === 'cancelled') {
+    throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  }
   if (order.status !== 'data_entry_complete' && order.status !== 'photo_rejected') {
     throw new AppError('Cannot upload photo in current status', 409, 'INVALID_STATE');
   }
@@ -186,6 +203,9 @@ const uploadReceipt = async (orderId, userId, body, file) => {
   const order = await orderModel.findById(orderId);
   if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
   if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
+  if (order.status === 'cancelled') {
+    throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  }
   if (order.status !== 'photo_accepted') {
     throw new AppError('Cannot upload payment receipt in current status', 409, 'INVALID_STATE');
   }
@@ -219,12 +239,16 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   const order = await orderModel.findById(orderId);
   if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
 
+  if (order.status === 'cancelled') {
+    throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  }
+
   const actionMap = {
     accept_photo: { from: 'photo_pending', to: 'photo_accepted' },
     reject_photo: { from: 'photo_pending', to: 'photo_rejected' },
     verify_payment: { from: 'payment_pending', to: 'payment_verification' },
     approve: { from: 'payment_verification', to: 'approved' },
-    request_correction: { from: 'payment_verification', to: 'needs_correction' },
+    request_correction: { from: null, to: 'needs_correction' },
     submit_official: { from: 'approved', to: 'submitted' },
     mark_completed: { from: 'submitted', to: 'completed' },
     cancel: { from: null, to: 'cancelled' },
@@ -233,7 +257,7 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   const transition = actionMap[action];
   if (!transition) throw new AppError('Invalid action', 400, 'INVALID_ACTION');
 
-  if (order.status !== transition.from && transition.from !== null) {
+  if (transition.from !== null && order.status !== transition.from) {
     throw new AppError(
       `Cannot perform ${action} from status ${order.status}`,
       409,
@@ -242,8 +266,7 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   }
 
   assertTransition(order.status, transition.to, role);
-
-  const updateData = { status: transition.to, notes: notes || order.notes };
+  await checkGuard(action, order);
 
   if (action === 'submit_official' && confirmation_number) {
     await db('applicant_data').where({ order_id: orderId }).update({
@@ -253,11 +276,10 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
     });
   }
 
-  if (action === 'cancel') {
-    await orderModel.update(orderId, { status: 'cancelled', notes: notes || null });
-  } else {
-    await orderModel.update(orderId, updateData);
-  }
+  await orderModel.update(orderId, {
+    status: transition.to,
+    notes: notes || order.notes,
+  });
 
   await db('audit_logs').insert({
     order_id: orderId,
@@ -268,7 +290,7 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
     metadata: notes ? { notes } : {},
   });
 
-  if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending'].includes(transition.to)) {
+  if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending', 'photo_accepted'].includes(transition.to)) {
     await notifier.sendStatusUpdate(order.user_id, transition.to, notes);
   }
 

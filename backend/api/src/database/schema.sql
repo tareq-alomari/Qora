@@ -100,6 +100,11 @@ CREATE TABLE applicant_data (
     children_data     JSONB DEFAULT '[]',
 
     -- Photo
+    country_of_eligibility VARCHAR(100),
+    passport_number   VARCHAR(50),
+    passport_expiry   DATE,
+    alt_phone         VARCHAR(20),
+
     photo_path        VARCHAR(500),
     photo_validation  JSONB DEFAULT '{}',
 

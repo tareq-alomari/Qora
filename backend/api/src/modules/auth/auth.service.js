@@ -3,6 +3,9 @@ const userModel = require('./auth.model');
 const { AppError } = require('../../common/error-handler');
 const { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken } = require('../../common/redis');
 
+const OTP_MAX_ATTEMPTS = 5;
+const otpAttempts = {};
+
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -16,6 +19,13 @@ const generateTokens = (user) => {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
   return { accessToken, refreshToken };
+};
+
+const checkOtpAttempts = (phone) => {
+  const attempts = otpAttempts[phone] || 0;
+  if (attempts >= OTP_MAX_ATTEMPTS) {
+    throw new AppError('Too many attempts. Request a new OTP', 429, 'OTP_MAX_ATTEMPTS');
+  }
 };
 
 const register = async (phone, fullName) => {
@@ -33,22 +43,30 @@ const register = async (phone, fullName) => {
 
   const otp = generateOtp();
   await setOtp(phone, otp);
+  otpAttempts[phone] = 0;
 
   return { userId: user[0].id, otpSent: true, otpExpiresIn: 300 };
 };
 
 const verifyOtp = async (phone, otp) => {
+  checkOtpAttempts(phone);
+
   const stored = await getOtp(phone);
   if (!stored) {
     throw new AppError('OTP expired or not requested', 410, 'OTP_EXPIRED');
   }
   if (stored !== otp) {
-    throw new AppError('Invalid OTP', 400, 'INVALID_OTP');
+    otpAttempts[phone] = (otpAttempts[phone] || 0) + 1;
+    const remaining = OTP_MAX_ATTEMPTS - otpAttempts[phone];
+    const err = new AppError('Invalid OTP', 400, 'INVALID_OTP');
+    err.details = [{ field: 'otp', message: `رمز التحقق غير صحيح. لديك ${remaining} محاولات متبقية` }];
+    throw err;
   }
 
+  delete otpAttempts[phone];
   await delOtp(phone);
 
-  let user = await userModel.findByPhone(phone);
+  const user = await userModel.findByPhone(phone);
   if (!user) {
     throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   }
@@ -75,6 +93,7 @@ const login = async (phone) => {
 
   const otp = generateOtp();
   await setOtp(phone, otp);
+  otpAttempts[phone] = 0;
 
   return { otpSent: true, otpExpiresIn: 300 };
 };
