@@ -45,4 +45,31 @@ const updateSettings = async (req, res, next) => {
   }
 };
 
-module.exports = { getStats, listUsers, updateUser, getSettings, updateSettings };
+const getFraudFlags = async (req, res, next) => {
+  try {
+    const result = await adminService.getFraudFlags(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const sendBulkNotification = async (req, res, next) => {
+  try {
+    const result = await adminService.sendBulkNotification(req.body);
+    res.json({ data: result, message: `تم إرسال ${result.sent} إشعار بنجاح` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const exportOrders = async (req, res, next) => {
+  try {
+    const orders = await adminService.exportOrders(req.query);
+    res.json({ data: orders });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getStats, listUsers, updateUser, getSettings, updateSettings, getFraudFlags, sendBulkNotification, exportOrders };

@@ -1,3 +1,5 @@
+process.env.ENCRYPTION_KEY = 'test-encryption-key-32chars!';
+
 const orderService = require('../../src/modules/orders/orders.service');
 const orderModel = require('../../src/modules/orders/orders.model');
 const { AppError } = require('../../src/common/error-handler');
@@ -9,6 +11,7 @@ jest.mock('../../src/common/storage');
 const mockDb = {
   insert: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
+  whereNotNull: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   update: jest.fn().mockReturnThis(),
   first: jest.fn().mockResolvedValue(null),
@@ -56,6 +59,7 @@ describe('Orders Service', () => {
         birth_country: 'YEMEN',
         country_of_eligibility: 'YEMEN',
         marital_status: 'single',
+        education_level: 6,
         passport_number: '012345678',
         passport_expiry: '2030-01-01',
       },

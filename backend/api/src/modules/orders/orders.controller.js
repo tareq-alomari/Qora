@@ -2,7 +2,7 @@ const orderService = require('./orders.service');
 
 const create = async (req, res, next) => {
   try {
-    const order = await orderService.create(req.user.id, req.body);
+    const order = await orderService.create(req.user.id, req.body, req.ip);
     res.status(201).json({
       data: {
         order_id: order.id,
@@ -38,7 +38,7 @@ const getById = async (req, res, next) => {
 
 const updatePersonalData = async (req, res, next) => {
   try {
-    const order = await orderService.updatePersonalData(req.params.id, req.user.id, req.body);
+    const order = await orderService.updatePersonalData(req.params.id, req.user.id, req.body, req.ip);
     res.json({
       data: {
         order_id: order.id,
@@ -91,6 +91,21 @@ const uploadReceipt = async (req, res, next) => {
   }
 };
 
+const uploadPassportScan = async (req, res, next) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({
+        error: { code: 'PASSPORT_SCAN_REQUIRED', message: 'صورة الجواز مطلوبة', details: [] },
+      });
+    }
+    const result = await orderService.uploadPassportScan(req.params.id, req.user.id, file);
+    res.json({ data: result, message: 'تم رفع صورة الجواز' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const changeStatus = async (req, res, next) => {
   try {
     const result = await orderService.changeStatus(req.params.id, req.user.id, req.user.role, req.body);
@@ -102,5 +117,5 @@ const changeStatus = async (req, res, next) => {
 
 module.exports = {
   create, list, getById, updatePersonalData,
-  uploadPhoto, getPhotoStatus, uploadReceipt, changeStatus,
+  uploadPhoto, getPhotoStatus, uploadReceipt, uploadPassportScan, changeStatus,
 };

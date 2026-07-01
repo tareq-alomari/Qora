@@ -17,7 +17,7 @@ const clearRefreshCookie = (res) => {
 const register = async (req, res, next) => {
   try {
     const { phone, full_name } = req.body;
-    const result = await authService.register(phone, full_name);
+    const result = await authService.register(phone, full_name, req.ip);
     res.status(201).json({
       data: {
         user_id: result.userId,
@@ -85,6 +85,9 @@ const refresh = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
+    if (req.user?.id) {
+      await authService.logout(req.user.id);
+    }
     clearRefreshCookie(res);
     res.json({ message: 'تم تسجيل الخروج' });
   } catch (err) {

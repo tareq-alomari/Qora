@@ -76,10 +76,10 @@ const STATUS_PRIORITY = {
   photo_accepted: 3,
 };
 
-const sendStatusUpdate = async (userId, orderId, status, notes, phone) => {
+const sendStatusUpdate = async (userId, orderId, status, notes, phone, confirmationNumber) => {
   const statusMessages = {
     approved: { title: 'تم اعتماد الطلب', body: notes || 'تم اعتماد طلبك، جاري التجهيز للتسجيل الرسمي' },
-    submitted: { title: 'تم التسجيل رسمياً', body: 'تم إدخال طلبك في الموقع الرسمي بنجاح' },
+    submitted: { title: 'تم التسجيل رسمياً', body: `تم إدخال طلبك في الموقع الرسمي بنجاح. رقم التأكيد: ${confirmationNumber || ''}` },
     completed: { title: 'اكتمل الطلب', body: 'اكتمل طلبك، يمكنك متابعة النتيجة من حسابك' },
     cancelled: { title: 'تم إلغاء الطلب', body: notes || 'تم إلغاء الطلب' },
     needs_correction: { title: 'الطلب يحتاج تعديل', body: notes || 'يرجى مراجعة بيانات الطلب وتعديلها' },

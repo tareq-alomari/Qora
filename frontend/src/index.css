@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -12,5 +14,7 @@
   body {
     font-family: 'Cairo', system-ui, sans-serif;
     direction: rtl;
+    background-color: #f9fafb; /* gray-50 */
+    color: #111827; /* gray-900 */
   }
 }

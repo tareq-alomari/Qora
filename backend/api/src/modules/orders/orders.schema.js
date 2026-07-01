@@ -9,9 +9,10 @@ const personalDataSchema = Joi.object({
   birth_city: Joi.string().min(2).max(100).required(),
   birth_country: Joi.string().valid('YEMEN').default('YEMEN'),
   country_of_eligibility: Joi.string().valid('YEMEN').default('YEMEN'),
-  marital_status: Joi.string().valid('single', 'married', 'divorced', 'widowed').required(),
+  marital_status: Joi.string().valid('single', 'married', 'married_usc_lpr', 'divorced', 'widowed', 'legally_separated').required(),
   passport_number: Joi.string().alphanum().min(6).max(20).required(),
   passport_expiry: Joi.date().greater('now').required(),
+  education_level: Joi.number().integer().min(1).max(10).required(),
 });
 
 const spouseDataSchema = Joi.object({

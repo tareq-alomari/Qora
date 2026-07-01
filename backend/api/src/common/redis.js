@@ -102,4 +102,88 @@ const fallbackDel = (key) => {
   fallbackStore.delete(key);
 };
 
-module.exports = { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken, redis };
+const delRefreshToken = async (userId) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      await redis.del(`refresh:${userId}`);
+    } catch {
+      fallbackDel(`refresh:${userId}`);
+    }
+  } else {
+    fallbackDel(`refresh:${userId}`);
+  }
+};
+
+const setOtpAttempts = async (phone, attempts, ttlSeconds = 1800) => {
+  const val = String(attempts);
+  if (redis && REDIS_ENABLED) {
+    try {
+      await redis.setex(`otp_attempts:${phone}`, ttlSeconds, val);
+    } catch {
+      fallbackSet(`otp_attempts:${phone}`, val, ttlSeconds);
+    }
+  } else {
+    fallbackSet(`otp_attempts:${phone}`, val, ttlSeconds);
+  }
+};
+
+const getOtpAttempts = async (phone) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      const val = await redis.get(`otp_attempts:${phone}`);
+      return val ? parseInt(val) : 0;
+    } catch {
+      return parseInt(fallbackGet(`otp_attempts:${phone}`) || '0');
+    }
+  }
+  return parseInt(fallbackGet(`otp_attempts:${phone}`) || '0');
+};
+
+const delOtpAttempts = async (phone) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      await redis.del(`otp_attempts:${phone}`);
+    } catch {
+      fallbackDel(`otp_attempts:${phone}`);
+    }
+  } else {
+    fallbackDel(`otp_attempts:${phone}`);
+  }
+};
+
+const setOtpLocked = async (phone, ttlSeconds = 1800) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      await redis.setex(`otp_locked:${phone}`, ttlSeconds, '1');
+    } catch {
+      fallbackSet(`otp_locked:${phone}`, '1', ttlSeconds);
+    }
+  } else {
+    fallbackSet(`otp_locked:${phone}`, '1', ttlSeconds);
+  }
+};
+
+const getOtpLocked = async (phone) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      return await redis.get(`otp_locked:${phone}`);
+    } catch {
+      return fallbackGet(`otp_locked:${phone}`);
+    }
+  }
+  return fallbackGet(`otp_locked:${phone}`);
+};
+
+const delOtpLocked = async (phone) => {
+  if (redis && REDIS_ENABLED) {
+    try {
+      await redis.del(`otp_locked:${phone}`);
+    } catch {
+      fallbackDel(`otp_locked:${phone}`);
+    }
+  } else {
+    fallbackDel(`otp_locked:${phone}`);
+  }
+};
+
+module.exports = { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken, delRefreshToken, redis, setOtpAttempts, getOtpAttempts, delOtpAttempts, setOtpLocked, getOtpLocked, delOtpLocked };

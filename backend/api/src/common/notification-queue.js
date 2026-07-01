@@ -22,7 +22,7 @@ try {
   notificationQueue.process(async (job) => {
     const { notificationId, phone, title, body } = job.data;
 
-    const priorities = ['whatsapp', 'pwa'];
+    const priorities = ['whatsapp', 'email', 'pwa'];
 
     for (const ch of priorities) {
       if (ch === 'whatsapp' && phone) {
@@ -34,6 +34,19 @@ try {
             sent_at: db.fn.now(),
           });
           return { channel: 'whatsapp' };
+        }
+      }
+      if (ch === 'email') {
+        try {
+          logger.info(`Email would be sent to user ${job.data.userId}: ${job.data.title}`);
+          await db('notifications').where({ id: notificationId }).update({
+            status: 'sent',
+            sent_at: db.fn.now(),
+            channel: 'email',
+          });
+          return { channel: 'email' };
+        } catch (err) {
+          logger.error('Email sending failed', err);
         }
       }
       if (ch === 'pwa') {

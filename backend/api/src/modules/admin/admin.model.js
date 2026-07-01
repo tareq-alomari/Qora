@@ -125,6 +125,68 @@ const countUsers = ({ role, search }) => {
     .first();
 };
 
+const findFraudFlags = async ({ level, limit, offset }) => {
+  const query = db('orders')
+    .leftJoin('users', 'orders.user_id', 'users.id')
+    .leftJoin('applicant_data', 'orders.id', 'applicant_data.order_id')
+    .where('orders.fraud_level', '>', 0)
+    .select(
+      'orders.id',
+      'orders.order_number',
+      'orders.status',
+      'orders.fraud_level',
+      'orders.fraud_reason',
+      'orders.flagged_at',
+      'orders.created_at',
+      'users.id as user_id',
+      'users.phone as user_phone',
+      'users.full_name as user_name',
+      'applicant_data.first_name',
+      'applicant_data.last_name',
+    )
+    .modify((qb) => {
+      if (level) {
+        qb.where('orders.fraud_level', level);
+      }
+    })
+    .orderBy('orders.flagged_at', 'desc')
+    .limit(limit)
+    .offset(offset);
+
+  return query;
+};
+
+const countFraudFlags = async (level) => {
+  const query = db('orders')
+    .where('fraud_level', '>', 0)
+    .modify((qb) => {
+      if (level) {
+        qb.where('fraud_level', level);
+      }
+    })
+    .count('id as total')
+    .first();
+
+  return query;
+};
+
+const findUsersByFilter = ({ role, status }) => {
+  return db('users')
+    .select('id', 'full_name', 'phone')
+    .where('is_active', true)
+    .modify((qb) => {
+      if (role) qb.where('role', role);
+      if (status) {
+        qb.whereExists(function () {
+          this.select('id')
+            .from('orders')
+            .whereRaw('orders.user_id = users.id')
+            .andWhere('orders.status', status);
+        });
+      }
+    });
+};
+
 const updateUser = (id, data) => {
   return db('users').where({ id }).update(data).returning(['id', 'phone', 'email', 'full_name', 'role', 'is_active']);
 };
@@ -177,4 +239,31 @@ const updateSettings = async (data, userId) => {
   return getSettings();
 };
 
-module.exports = { getStats, findUsers, countUsers, updateUser, getSettings, updateSettings };
+const exportOrders = ({ status, date_from, date_to }) => {
+  const query = db('orders')
+    .leftJoin('applicant_data', 'orders.id', 'applicant_data.order_id')
+    .leftJoin('users', 'orders.user_id', 'users.id')
+    .leftJoin('payments', 'orders.id', 'payments.order_id')
+    .select(
+      'orders.id',
+      'orders.order_number',
+      'orders.status',
+      'orders.amount',
+      'orders.created_at',
+      'users.full_name as client_name',
+      'users.phone as client_phone',
+      'applicant_data.first_name',
+      'applicant_data.last_name',
+      'payments.amount as payment_amount',
+    )
+    .modify((qb) => {
+      if (status) qb.where('orders.status', status);
+      if (date_from) qb.where('orders.created_at', '>=', date_from);
+      if (date_to) qb.where('orders.created_at', '<=', date_to);
+    })
+    .orderBy('orders.created_at', 'desc');
+
+  return query;
+};
+
+module.exports = { getStats, findUsers, countUsers, updateUser, getSettings, updateSettings, findFraudFlags, countFraudFlags, findUsersByFilter, exportOrders };
