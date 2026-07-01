@@ -1,7 +1,17 @@
-const knex = require("knex");
-const config = require("../../knexfile");
+const knex = require('knex');
+const config = require('../../knexfile');
 
-const environment = process.env.NODE_ENV || "development";
-const db = knex(config[environment]);
+const environment = process.env.NODE_ENV || 'development';
 
-module.exports = db;
+let connection;
+if (environment === 'test') {
+  connection = knex({
+    client: 'sqlite3',
+    connection: ':memory:',
+    useNullAsDefault: true,
+  });
+} else {
+  connection = knex(config[environment] || config.development);
+}
+
+module.exports = connection;

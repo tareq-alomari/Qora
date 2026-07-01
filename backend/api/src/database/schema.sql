@@ -26,9 +26,9 @@ CREATE TYPE order_status AS ENUM (
     'cancelled'
 );
 CREATE TYPE payment_method AS ENUM ('deposit', 'wallet');
-CREATE TYPE payment_provider AS ENUM ('alkuraimi', 'jeeb', 'one_cash', 'mobile_money');
+CREATE TYPE payment_provider AS ENUM ('kuraimi', 'jeeb', 'one_cash', 'mobile_money');
 CREATE TYPE payment_status AS ENUM ('pending', 'verified', 'rejected', 'refunded');
-CREATE TYPE notification_channel AS ENUM ('email', 'sms', 'whatsapp', 'in_app');
+CREATE TYPE notification_channel AS ENUM ('email', 'sms', 'whatsapp', 'pwa');
 CREATE TYPE notification_status AS ENUM ('pending', 'sent', 'failed', 'read');
 CREATE TYPE service_type AS ENUM ('dv_lottery', 'visa', 'translation', 'passport');
 
@@ -39,7 +39,7 @@ CREATE TABLE users (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email             VARCHAR(255) UNIQUE,
     phone             VARCHAR(20) UNIQUE NOT NULL,
-    password_hash     VARCHAR(255) NOT NULL,
+    password_hash     VARCHAR(255),
     full_name         VARCHAR(255),
     role              user_role DEFAULT 'client',
     is_verified       BOOLEAN DEFAULT FALSE,
@@ -58,10 +58,14 @@ CREATE TABLE orders (
     user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     service_type      service_type DEFAULT 'dv_lottery',
     status            order_status DEFAULT 'draft',
-    total_price       DECIMAL(10,2) NOT NULL DEFAULT 0,
-    currency          VARCHAR(3) DEFAULT 'USD',
+    total_price       DECIMAL(10,2) NOT NULL DEFAULT 1000,
+    order_number      VARCHAR(20) UNIQUE,
+    currency          VARCHAR(3) DEFAULT 'YER',
     notes             TEXT,
     metadata          JSONB DEFAULT '{}',
+    is_active         BOOLEAN DEFAULT TRUE,
+    result            VARCHAR(10) CHECK (result IN ('winner', 'loser')),
+    result_checked_at TIMESTAMPTZ,
     created_at        TIMESTAMPTZ DEFAULT NOW(),
     updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
@@ -99,6 +103,11 @@ CREATE TABLE applicant_data (
     children_data     JSONB DEFAULT '[]',
 
     -- Photo
+    country_of_eligibility VARCHAR(100),
+    passport_number   VARCHAR(50),
+    passport_expiry   DATE,
+    alt_phone         VARCHAR(20),
+
     photo_path        VARCHAR(500),
     photo_validation  JSONB DEFAULT '{}',
 
@@ -118,11 +127,12 @@ CREATE TABLE payments (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id          UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     amount            DECIMAL(10,2) NOT NULL,
-    currency          VARCHAR(3) DEFAULT 'USD',
-    method            payment_method DEFAULT 'bank_transfer',
+    currency          VARCHAR(3) DEFAULT 'YER',
+    method            payment_method DEFAULT 'deposit',
     provider          payment_provider,
     transfer_number   VARCHAR(100),
     receipt_image_path VARCHAR(500),
+    receipt_hash      VARCHAR(64),
     status            payment_status DEFAULT 'pending',
     verified_by       UUID REFERENCES users(id),
     verified_at       TIMESTAMPTZ,
@@ -140,7 +150,7 @@ CREATE TABLE notifications (
     user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     order_id          UUID REFERENCES orders(id) ON DELETE SET NULL,
     type              VARCHAR(50) NOT NULL,
-    channel           notification_channel DEFAULT 'in_app',
+    channel           notification_channel DEFAULT 'pwa',
     title             VARCHAR(255) NOT NULL,
     body              TEXT,
     metadata          JSONB DEFAULT '{}',
@@ -167,6 +177,18 @@ CREATE TABLE audit_logs (
 );
 
 -- ============================================
+-- SETTINGS (Key-Value Store)
+-- ============================================
+CREATE TABLE settings (
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key               VARCHAR(100) UNIQUE NOT NULL,
+    value             JSONB NOT NULL,
+    updated_by        UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at        TIMESTAMPTZ DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- INDEXES
 -- ============================================
 CREATE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;
@@ -180,8 +202,11 @@ CREATE INDEX idx_payments_status ON payments(status);
 CREATE INDEX idx_payments_transfer_number ON payments(transfer_number) WHERE transfer_number IS NOT NULL;
 CREATE INDEX idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX idx_notifications_status ON notifications(status);
-CREATE INDEX idx_audit_logs_order_id ON audit_logs(order_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX idx_orders_status_created ON orders(status, created_at DESC);
+CREATE INDEX idx_orders_user_id_created ON orders(user_id, created_at DESC);
+CREATE INDEX idx_orders_is_active ON orders(is_active);
+CREATE INDEX idx_payments_status_created ON payments(status, created_at ASC);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
 
 -- ============================================
 -- UPDATED AT TRIGGER
