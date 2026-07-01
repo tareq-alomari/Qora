@@ -78,7 +78,10 @@ const assertTransition = (fromStatus, toStatus, role) => {
     );
   }
 
-  const allowedRoles = ROLE_ACTIONS[action] || [];
+  const allowedRoles = Object.entries(ROLE_ACTIONS)
+    .filter(([_, actions]) => actions.includes(action))
+    .map(([roleName]) => roleName);
+
   if (!allowedRoles.includes(role)) {
     throw new AppError(
       `Role ${role} cannot perform action ${action}`,

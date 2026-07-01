@@ -1,9 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const { logger } = require('./common/logger');
 const multer = require('multer');
+const { logger } = require('./common/logger');
 const { errorHandler } = require('./common/error-handler');
 
 const app = express();

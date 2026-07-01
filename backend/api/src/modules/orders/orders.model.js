@@ -4,7 +4,7 @@ const findById = (id) => {
   return db('orders').where({ id }).first();
 };
 
-const findByUser = (userId, { status, page: _page, limit: _limit, search, sort, order }) => {
+const findByUser = (userId, { status, search, sort, order, limit, offset }) => {
   const query = db('orders')
     .leftJoin('applicant_data', 'orders.id', 'applicant_data.order_id')
     .where('orders.user_id', userId)
@@ -27,11 +27,12 @@ const findByUser = (userId, { status, page: _page, limit: _limit, search, sort, 
   }
 
   query.orderBy(sort || 'orders.created_at', order || 'desc');
+  query.limit(limit).offset(offset);
 
   return query;
 };
 
-const findAll = ({ status, page: _page, limit: _limit, search, sort, order }) => {
+const findAll = ({ status, search, sort, order, limit, offset }) => {
   const query = db('orders')
     .leftJoin('applicant_data', 'orders.id', 'applicant_data.order_id')
     .leftJoin('users', 'orders.user_id', 'users.id')
@@ -60,6 +61,7 @@ const findAll = ({ status, page: _page, limit: _limit, search, sort, order }) =>
   }
 
   query.orderBy(sort || 'orders.created_at', order || 'desc');
+  query.limit(limit).offset(offset);
 
   return query;
 };

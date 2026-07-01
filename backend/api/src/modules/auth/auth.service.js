@@ -1,8 +1,7 @@
 const jwt = require('jsonwebtoken');
 const userModel = require('./auth.model');
 const { AppError } = require('../../common/error-handler');
-
-const otpStore = new Map();
+const { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken } = require('../../common/redis');
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -33,26 +32,21 @@ const register = async (phone, fullName) => {
   });
 
   const otp = generateOtp();
-  const expiresAt = Date.now() + 5 * 60 * 1000;
-  otpStore.set(phone, { code: otp, expiresAt });
+  await setOtp(phone, otp);
 
   return { userId: user[0].id, otpSent: true, otpExpiresIn: 300 };
 };
 
 const verifyOtp = async (phone, otp) => {
-  const stored = otpStore.get(phone);
+  const stored = await getOtp(phone);
   if (!stored) {
-    throw new AppError('No OTP requested', 400, 'NO_OTP');
+    throw new AppError('OTP expired or not requested', 410, 'OTP_EXPIRED');
   }
-  if (Date.now() > stored.expiresAt) {
-    otpStore.delete(phone);
-    throw new AppError('OTP expired', 410, 'OTP_EXPIRED');
-  }
-  if (stored.code !== otp) {
+  if (stored !== otp) {
     throw new AppError('Invalid OTP', 400, 'INVALID_OTP');
   }
 
-  otpStore.delete(phone);
+  await delOtp(phone);
 
   let user = await userModel.findByPhone(phone);
   if (!user) {
@@ -60,9 +54,10 @@ const verifyOtp = async (phone, otp) => {
   }
 
   await userModel.updateLastLogin(user.id);
+  await setRefreshToken(user.id, '');
 
   const tokens = generateTokens(user);
-  await userModel.storeRefreshToken(user.id, tokens.refreshToken);
+  await setRefreshToken(user.id, tokens.refreshToken);
 
   return {
     userId: user.id,
@@ -79,8 +74,7 @@ const login = async (phone) => {
   }
 
   const otp = generateOtp();
-  const expiresAt = Date.now() + 5 * 60 * 1000;
-  otpStore.set(phone, { code: otp, expiresAt });
+  await setOtp(phone, otp);
 
   return { otpSent: true, otpExpiresIn: 300 };
 };
@@ -97,13 +91,18 @@ const refresh = async (token) => {
     throw new AppError('Invalid refresh token', 401, 'INVALID_REFRESH_TOKEN');
   }
 
-  const user = await userModel.findRefreshToken(token);
-  if (!user || user.id !== decoded.id) {
+  const stored = await getRefreshToken(decoded.id);
+  if (stored !== token) {
     throw new AppError('Refresh token not found', 401, 'INVALID_REFRESH_TOKEN');
   }
 
+  const user = await userModel.findById(decoded.id);
+  if (!user) {
+    throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+  }
+
   const tokens = generateTokens(user);
-  await userModel.storeRefreshToken(user.id, tokens.refreshToken);
+  await setRefreshToken(user.id, tokens.refreshToken);
 
   return {
     accessToken: tokens.accessToken,

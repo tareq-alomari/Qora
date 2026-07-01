@@ -2,6 +2,8 @@ const db = require('../../database/db');
 const orderModel = require('./orders.model');
 const { AppError } = require('../../common/error-handler');
 const { assertTransition } = require('../../common/state-machine');
+const storage = require('../../common/storage');
+const notifier = require('../../common/notifier');
 
 const create = async (userId, data) => {
   const active = await orderModel.getActiveOrder(userId);
@@ -145,7 +147,7 @@ const updatePersonalData = async (orderId, userId, data) => {
   return orderModel.findById(orderId);
 };
 
-const uploadPhoto = async (orderId, userId, _file) => {
+const uploadPhoto = async (orderId, userId, file) => {
   const order = await orderModel.findById(orderId);
   if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
   if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
@@ -154,12 +156,13 @@ const uploadPhoto = async (orderId, userId, _file) => {
   }
 
   const photoPath = `orders/${orderId}/photo.jpg`;
+  await storage.save(file.buffer, photoPath);
   await db('applicant_data').where({ order_id: orderId }).update({ photo_path: photoPath });
 
-  const newStatus = order.status === 'photo_rejected' ? 'photo_pending' : 'photo_pending';
+  const newStatus = 'photo_pending';
   await orderModel.update(orderId, { status: newStatus });
 
-  return { photo_path: photoPath, status: newStatus, ai_check: { status: 'processing', estimated_time: 3 } };
+  return { photo_path: photoPath, photo_url: storage.getUrl(photoPath), status: newStatus, ai_check: { status: 'processing', estimated_time: 3 } };
 };
 
 const getPhotoStatus = async (orderId, userId) => {
@@ -179,7 +182,7 @@ const getPhotoStatus = async (orderId, userId) => {
   };
 };
 
-const uploadReceipt = async (orderId, userId, body, _file) => {
+const uploadReceipt = async (orderId, userId, body, file) => {
   const order = await orderModel.findById(orderId);
   if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
   if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
@@ -188,6 +191,8 @@ const uploadReceipt = async (orderId, userId, body, _file) => {
   }
 
   const receiptPath = `receipts/${orderId}/receipt.jpg`;
+  await storage.save(file.buffer, receiptPath);
+
   const [payment] = await db('payments').insert({
     order_id: orderId,
     amount: body.amount || 1000,
@@ -262,6 +267,10 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
     to_status: transition.to,
     metadata: notes ? { notes } : {},
   });
+
+  if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending'].includes(transition.to)) {
+    await notifier.sendStatusUpdate(order.user_id, transition.to, notes);
+  }
 
   const updated = await orderModel.findById(orderId);
   return { order: updated };
