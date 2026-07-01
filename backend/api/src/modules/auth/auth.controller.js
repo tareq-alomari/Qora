@@ -1,5 +1,19 @@
 const authService = require('./auth.service');
 
+const setRefreshCookie = (res, token) => {
+  res.cookie('refreshToken', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/v1/auth/refresh',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const clearRefreshCookie = (res) => {
+  res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
+};
+
 const register = async (req, res, next) => {
   try {
     const { phone, full_name } = req.body;
@@ -22,11 +36,11 @@ const verifyOtp = async (req, res, next) => {
   try {
     const { phone, otp } = req.body;
     const result = await authService.verifyOtp(phone, otp);
+    setRefreshCookie(res, result.refreshToken);
     res.status(200).json({
       data: {
         user_id: result.userId,
         access_token: result.accessToken,
-        refresh_token: result.refreshToken,
         expires_in: result.expiresIn,
       },
       message: 'تم تسجيل الدخول بنجاح',
@@ -54,19 +68,28 @@ const login = async (req, res, next) => {
 
 const refresh = async (req, res, next) => {
   try {
-    const header = req.headers.authorization;
-    const token = header ? header.split(' ')[1] : null;
+    const token = req.cookies?.refreshToken || req.headers['x-refresh-token'];
     const result = await authService.refresh(token);
+    setRefreshCookie(res, result.refreshToken);
     res.status(200).json({
       data: {
         access_token: result.accessToken,
-        refresh_token: result.refreshToken,
         expires_in: result.expiresIn,
       },
     });
+  } catch (err) {
+    clearRefreshCookie(res);
+    next(err);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    clearRefreshCookie(res);
+    res.json({ message: 'تم تسجيل الخروج' });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { register, verifyOtp, login, refresh };
+module.exports = { register, verifyOtp, login, refresh, logout };

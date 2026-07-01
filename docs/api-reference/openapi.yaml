@@ -1,0 +1,2304 @@
+openapi: 3.0.3
+info:
+  title: Qor3a API — قرعة
+  description: >
+    DV Lottery registration platform targeting the Yemeni market.
+    OTP-based authentication via WhatsApp, 12-state order lifecycle,
+    manual payment verification, and automated official site submission.
+
+    **Base URL:** `/api/v1`
+  version: 0.1.0
+  contact:
+    name: Qor3a Team
+    email: dev@qor3a.ye
+  x-logo:
+    url: https://qor3a.ye/logo.png
+    altText: Qor3a Logo
+
+servers:
+  - url: http://localhost:3000
+    description: Development
+  - url: https://api.qor3a.ye
+    description: Production
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Auth
+    description: OTP-based authentication & token management
+  - name: Users
+    description: User profile management
+  - name: Orders
+    description: DV Lottery order lifecycle (12-state machine)
+  - name: Payments
+    description: Payment methods & receipt management
+  - name: Notifications
+    description: In-app & WhatsApp notifications
+  - name: Admin
+    description: Admin dashboard, user management & settings
+
+paths:
+  # ============================================
+  # HEALTH
+  # ============================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Returns API status, uptime, version, and individual service checks.
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================
+  # AUTH
+  # ============================================
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new client account
+      description: >
+        Creates a new user account and sends a 6-digit OTP via WhatsApp.
+        Rate-limited to **3 requests per hour per IP**.
+      security: []
+      x-rate-limit: 3/hour
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created, OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          description: Phone already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PHONE_EXISTS
+                  message: Phone already registered
+                  details: []
+
+  /api/v1/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP & receive JWT tokens
+      description: >
+        Validates the 6-digit OTP sent via WhatsApp.
+        On success, returns an access token (24h) and sets a refresh token
+        in an httpOnly cookie (7d).
+        After **3 failed attempts**, a new OTP is auto-sent.
+        After **5 failed attempts**, account is locked for 30 minutes.
+      security: []
+      x-rate-limit: 10/minute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+      responses:
+        '200':
+          description: OTP verified, tokens returned
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: refreshToken=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/refresh; Max-Age=604800
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyOtpResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '410':
+          description: OTP expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: OTP_EXPIRED
+                  message: OTP expired or not requested
+                  details: []
+        '429':
+          description: Too many failed attempts — account locked for 30 min
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: OTP_LOCKED
+                  message: Too many failed attempts. Account locked for 30 minutes
+                  details: []
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Request OTP for existing user
+      description: >
+        Sends a 6-digit OTP via WhatsApp to an already-registered phone number.
+        Rate-limited to **5 requests per minute per IP**.
+      security: []
+      x-rate-limit: 5/minute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: Phone not registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: USER_NOT_FOUND
+                  message: User not found
+                  details: []
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: >
+        Issues a new access/refresh token pair using either:
+        - The `refreshToken` httpOnly cookie, OR
+        - The `x-refresh-token` header.
+        Rate-limited to **10 requests per hour per IP**.
+      security: []
+      x-rate-limit: 10/hour
+      responses:
+        '200':
+          description: Tokens refreshed
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyOtpResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout & clear refresh token cookie
+      description: Clears the `refreshToken` httpOnly cookie.
+      security: []
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Logged out
+
+  # ============================================
+  # USERS
+  # ============================================
+  /api/v1/users/profile:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        '200':
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [Users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ============================================
+  # ORDERS
+  # ============================================
+  /api/v1/orders:
+    post:
+      tags: [Orders]
+      summary: Create a new DV Lottery order
+      description: >
+        Creates a new order in `draft` status with applicant data.
+        An order number is auto-generated (`QR-{year}-{NNNN}`).
+        Rate-limited to **10 requests per minute per user**.
+        Clients can only have one active order at a time.
+      x-rate-limit: 10/minute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/OrderSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Active order already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: DUPLICATE_ENTRY
+                  message: You already have an active order
+                  details: []
+
+    get:
+      tags: [Orders]
+      summary: List orders
+      description: >
+        Clients see their own orders. Employees/admins see all orders.
+        Supports pagination, status filtering, and text search.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - draft
+              - data_entry_complete
+              - photo_pending
+              - photo_rejected
+              - photo_accepted
+              - payment_pending
+              - payment_verification
+              - needs_correction
+              - approved
+              - submitted
+              - completed
+              - cancelled
+          description: Filter by order status
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by name, phone, or order number
+        - in: query
+          name: sort
+          schema:
+            type: string
+            default: created_at
+          description: Sort field
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort direction
+      responses:
+        '200':
+          description: Paginated order list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderListItem'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Get order details
+      description: >
+        Returns full order details including applicant data, payment info,
+        and audit log. Clients can only view their own orders.
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Order details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/OrderDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/orders/{id}/personal-data:
+    patch:
+      tags: [Orders]
+      summary: Update order personal data
+      description: >
+        Updates applicant data. Allowed only in `draft` or `needs_correction` status.
+        - If in `draft` → auto-transitions to `data_entry_complete`
+        - If in `data_entry_complete` → auto-transitions back to `draft` (edit mode)
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePersonalDataRequest'
+      responses:
+        '200':
+          description: Personal data updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/OrderDetail'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/{id}/photo:
+    post:
+      tags: [Orders]
+      summary: Upload applicant photo
+      description: >
+        Uploads a passport-style photo for the DV Lottery application.
+        Rate-limited to **5 uploads per minute per user**.
+        Accepted formats: JPEG, PNG. Max size: 5MB.
+      x-rate-limit: 5/minute
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPEG or PNG image, max 5MB
+              required: [photo]
+      responses:
+        '200':
+          description: Photo uploaded, pending AI validation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      photo_path:
+                        type: string
+                        example: orders/uuid/photo.jpg
+                      photo_url:
+                        type: string
+                        example: /uploads/orders/uuid/photo.jpg
+                      status:
+                        type: string
+                        example: photo_pending
+                      ai_check:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            example: processing
+                          estimated_time:
+                            type: integer
+                            example: 3
+        '400':
+          description: Invalid file type or size
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/v1/orders/{id}/photo/status:
+    get:
+      tags: [Orders]
+      summary: Get AI photo validation status
+      description: Returns the AI validation result for the uploaded photo.
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      responses:
+        '200':
+          description: Photo validation status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [pending, processing, accepted, rejected]
+                        example: accepted
+                      confidence:
+                        type: number
+                        format: float
+                        nullable: true
+                        example: 0.95
+                      reasons:
+                        type: array
+                        items:
+                          type: string
+                        example: []
+                      suggestions:
+                        type: array
+                        items:
+                          type: string
+                        example: []
+                      checked_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/orders/{id}/payment/receipt:
+    post:
+      tags: [Orders]
+      summary: Upload payment receipt
+      description: >
+        Uploads a payment receipt screenshot for manual verification.
+        Rate-limited to **3 uploads per minute per user**.
+        Amount must be exactly 1,000 YR.
+        Duplicate receipts (SHA-256 hash) and transfer numbers are rejected.
+      x-rate-limit: 3/minute
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                receipt:
+                  type: string
+                  format: binary
+                  description: JPEG or PNG receipt image, max 5MB
+                payment_method:
+                  type: string
+                  enum: [kuraimi, jeeb, one_cash, mobile_money]
+                  description: Payment provider used
+                amount:
+                  type: number
+                  default: 1000
+                  description: Amount in YR (must be exactly 1000)
+                transfer_number:
+                  type: string
+                  description: Transfer/transaction number from the receipt
+              required: [receipt, payment_method]
+      responses:
+        '201':
+          description: Receipt uploaded, pending verification
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      receipt_id:
+                        type: string
+                        format: uuid
+                      payment_method:
+                        type: string
+                      amount:
+                        type: number
+                        example: 1000
+                      status:
+                        type: string
+                        example: pending_verification
+                      order_status:
+                        type: string
+                        example: payment_pending
+        '400':
+          description: Invalid amount, file, or duplicate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Duplicate receipt or transfer number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/orders/{id}/status:
+    patch:
+      tags: [Orders]
+      summary: Change order status (Employee/Admin)
+      description: >
+        Advances the order through the 12-state machine.
+        Only employees and admins can perform status changes.
+        Rate-limited to **30 requests per minute**.
+        Every status change is recorded in the audit log.
+      x-rate-limit: 30/minute
+      parameters:
+        - $ref: '#/components/parameters/OrderIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+      responses:
+        '200':
+          description: Status changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        $ref: '#/components/schemas/OrderSummary'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Invalid transition or guard check failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================
+  # PAYMENTS
+  # ============================================
+  /api/v1/payments/methods:
+    get:
+      tags: [Payments]
+      summary: List available payment methods
+      description: >
+        Returns active payment methods from the settings table.
+        Currently includes Kuraimi, Jeeb, One Cash (active) and Mobile Money (inactive).
+      security: []
+      responses:
+        '200':
+          description: Payment methods retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentMethod'
+
+  /api/v1/payments/receipts:
+    get:
+      tags: [Payments]
+      summary: List payment receipts (Employee/Admin)
+      description: >
+        Lists all submitted payment receipts with status filtering and pagination.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, verified, rejected, refunded]
+          description: Filter by payment status
+      responses:
+        '200':
+          description: Paginated receipt list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReceiptItem'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ============================================
+  # NOTIFICATIONS
+  # ============================================
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for current user
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags: [Notifications]
+      summary: Create a notification (Internal/Admin)
+      description: Creates a notification for a specific user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRequest'
+      responses:
+        '201':
+          description: Notification created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Get unread notification count
+      responses:
+        '200':
+          description: Unread count retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      unread_count:
+                        type: integer
+                        example: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification marked as read
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ============================================
+  # ADMIN
+  # ============================================
+  /api/v1/admin/stats:
+    get:
+      tags: [Admin]
+      summary: Get dashboard statistics
+      description: >
+        Returns comprehensive dashboard stats including order counts,
+        revenue, status distribution, and AI validation metrics.
+        Rate-limited to **60 requests per minute**.
+      x-rate-limit: 60/minute
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: List all users
+      description: Returns paginated list of users with optional role/search filtering.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [client, employee, admin]
+          description: Filter by role
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by name or phone
+      responses:
+        '200':
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminUser'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/v1/admin/users/{id}:
+    patch:
+      tags: [Admin]
+      summary: Update user (role, status, name)
+      description: Updates user attributes. Admin-only.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminUser'
+                  message:
+                    type: string
+                    example: تم تحديث المستخدم
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/admin/settings:
+    get:
+      tags: [Admin]
+      summary: Get system settings
+      description: Returns pricing, payment accounts, season config, and rate limits.
+      responses:
+        '200':
+          description: Settings retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    patch:
+      tags: [Admin]
+      summary: Update system settings
+      description: Updates pricing, payment accounts, season, or rate limits.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSettingsRequest'
+      responses:
+        '200':
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AdminSettings'
+                  message:
+                    type: string
+                    example: تم تحديث الإعدادات
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Access token obtained from `/auth/verify-otp` or `/auth/refresh`.
+        Format: `Authorization: Bearer <token>`
+        Expires in: 24 hours.
+
+  parameters:
+    PageParam:
+      in: query
+      name: page
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number (1-indexed)
+    LimitParam:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Items per page
+    OrderIdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Order UUID
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Unauthorized
+              details: []
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: FORBIDDEN
+              message: Forbidden
+              details: []
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+              details: []
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Validation failed
+              details:
+                - field: phone
+                  message: رقم الهاتف مطلوب
+    Conflict:
+      description: Resource conflict or invalid state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: INVALID_TRANSITION
+              message: Cannot perform action from current status
+              details: []
+
+  schemas:
+    # ============================================
+    # ERROR
+    # ============================================
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+      required: [error]
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 42
+        total_pages:
+          type: integer
+          example: 3
+      required: [page, limit, total, total_pages]
+
+    # ============================================
+    # HEALTH
+    # ============================================
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+          description: Server uptime in seconds
+        version:
+          type: string
+          example: '1.0.0'
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [ok, down, unknown]
+            redis:
+              type: string
+              enum: [ok, down, unknown]
+            minio:
+              type: string
+              enum: [ok, down, unknown]
+            ai_service:
+              type: string
+              enum: [ok, down, unknown]
+      required: [status, timestamp, uptime, version, checks]
+
+    # ============================================
+    # AUTH
+    # ============================================
+    RegisterRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^967[73]\d{8}$'
+          example: '967712345678'
+          description: Yemeni phone number starting with 9677 or 96773
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: أحمد محمد
+
+    RegisterResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            phone:
+              type: string
+            otp_sent:
+              type: boolean
+              example: true
+            otp_expires_in:
+              type: integer
+              description: OTP expiry in seconds
+              example: 300
+        message:
+          type: string
+
+    VerifyOtpRequest:
+      type: object
+      required: [phone, otp]
+      properties:
+        phone:
+          type: string
+          pattern: '^967[73]\d{8}$'
+          example: '967712345678'
+        otp:
+          type: string
+          pattern: '^\d{6}$'
+          description: 6-digit OTP code
+          example: '123456'
+
+    VerifyOtpResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            access_token:
+              type: string
+              description: JWT access token (24h expiry)
+            expires_in:
+              type: integer
+              example: 86400
+              description: Access token TTL in seconds
+
+    LoginRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^967[73]\d{8}$'
+          example: '967712345678'
+
+    LoginResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            otp_sent:
+              type: boolean
+              example: true
+            otp_expires_in:
+              type: integer
+              example: 300
+
+    # ============================================
+    # USERS
+    # ============================================
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        email:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [client, employee, admin]
+        is_verified:
+          type: boolean
+        is_active:
+          type: boolean
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    UpdateProfileRequest:
+      type: object
+      minProperties: 1
+      properties:
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          nullable: true
+
+    # ============================================
+    # ORDERS
+    # ============================================
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        service_type:
+          type: string
+          enum: [dv_lottery, visa, translation, passport]
+          default: dv_lottery
+        status:
+          type: string
+          enum:
+            - draft
+            - data_entry_complete
+            - photo_pending
+            - photo_rejected
+            - photo_accepted
+            - payment_pending
+            - payment_verification
+            - needs_correction
+            - approved
+            - submitted
+            - completed
+            - cancelled
+          example: draft
+        total_price:
+          type: number
+          example: 1000
+        order_number:
+          type: string
+          example: QR-2026-0001
+        currency:
+          type: string
+          default: YER
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrderListItem:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          properties:
+            applicant_data:
+              $ref: '#/components/schemas/ApplicantDataSummary'
+
+    OrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/OrderSummary'
+        - type: object
+          properties:
+            personal_data:
+              $ref: '#/components/schemas/ApplicantDataDetail'
+            payment:
+              $ref: '#/components/schemas/PaymentDetail'
+              nullable: true
+            audit_log:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditLogEntry'
+
+    ApplicantDataSummary:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        photo_path:
+          type: string
+          nullable: true
+        photo_validation:
+          type: object
+          nullable: true
+        confirmation_number:
+          type: string
+          nullable: true
+
+    ApplicantDataDetail:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        middle_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        gender:
+          type: string
+          enum: [male, female]
+        birth_date:
+          type: string
+          format: date
+        birth_country:
+          type: string
+          default: YEMEN
+        birth_city:
+          type: string
+        country_of_eligibility:
+          type: string
+          default: YEMEN
+        marital_status:
+          type: string
+          enum: [single, married, divorced, widowed]
+        passport_number:
+          type: string
+        passport_expiry:
+          type: string
+          format: date
+        education_level:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        alt_phone:
+          type: string
+          nullable: true
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+          nullable: true
+        city:
+          type: string
+        country:
+          type: string
+        district:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        spouse_data:
+          type: object
+          nullable: true
+          properties:
+            first_name:
+              type: string
+            last_name:
+              type: string
+            birth_date:
+              type: string
+              format: date
+            gender:
+              type: string
+              enum: [male, female]
+            birth_city:
+              type: string
+        children_data:
+          type: array
+          items:
+            type: object
+            properties:
+              first_name:
+                type: string
+              last_name:
+                type: string
+              birth_date:
+                type: string
+                format: date
+              gender:
+                type: string
+                enum: [male, female]
+        photo_path:
+          type: string
+          nullable: true
+        photo_validation:
+          type: object
+          nullable: true
+        confirmation_number:
+          type: string
+          nullable: true
+          pattern: '^2026[A-Z]{2}\d{7}$'
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        submitted_by:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreateOrderRequest:
+      type: object
+      required: [personal_data, address, contact]
+      properties:
+        personal_data:
+          $ref: '#/components/schemas/PersonalDataInput'
+        spouse_data:
+          type: object
+          nullable: true
+          properties:
+            first_name:
+              type: string
+              minLength: 2
+              maxLength: 50
+            last_name:
+              type: string
+              minLength: 2
+              maxLength: 50
+            birth_date:
+              type: string
+              format: date
+            gender:
+              type: string
+              enum: [male, female]
+            birth_city:
+              type: string
+              minLength: 2
+              maxLength: 100
+            photo:
+              type: string
+              description: Reserved for future spouse photo upload
+        children_data:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [first_name, last_name, birth_date, gender]
+            properties:
+              first_name:
+                type: string
+                minLength: 2
+                maxLength: 50
+              last_name:
+                type: string
+                minLength: 2
+                maxLength: 50
+              birth_date:
+                type: string
+                format: date
+              gender:
+                type: string
+                enum: [male, female]
+        address:
+          type: object
+          required: [street, city]
+          properties:
+            street:
+              type: string
+              minLength: 3
+              maxLength: 200
+            city:
+              type: string
+              minLength: 2
+              maxLength: 100
+            district:
+              type: string
+              maxLength: 100
+              nullable: true
+            postal_code:
+              type: string
+              maxLength: 20
+              nullable: true
+            country:
+              type: string
+              default: YEMEN
+        contact:
+          type: object
+          required: [phone]
+          properties:
+            phone:
+              type: string
+              pattern: '^967[73]\d{8}$'
+            email:
+              type: string
+              format: email
+              nullable: true
+            alt_phone:
+              type: string
+              pattern: '^967[73]\d{8}$'
+              nullable: true
+
+    PersonalDataInput:
+      type: object
+      required: [first_name, last_name, gender, birth_date, birth_city, marital_status, passport_number, passport_expiry]
+      properties:
+        first_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        middle_name:
+          type: string
+          maxLength: 50
+          nullable: true
+        last_name:
+          type: string
+          minLength: 2
+          maxLength: 50
+        gender:
+          type: string
+          enum: [male, female]
+        birth_date:
+          type: string
+          format: date
+          description: Must be at least 18 years ago
+        birth_city:
+          type: string
+          minLength: 2
+          maxLength: 100
+        birth_country:
+          type: string
+          default: YEMEN
+        country_of_eligibility:
+          type: string
+          default: YEMEN
+        marital_status:
+          type: string
+          enum: [single, married, divorced, widowed]
+        passport_number:
+          type: string
+          pattern: '^[A-Za-z0-9]{6,20}$'
+        passport_expiry:
+          type: string
+          format: date
+          description: Must be a future date
+
+    UpdatePersonalDataRequest:
+      type: object
+      minProperties: 1
+      properties:
+        personal_data:
+          $ref: '#/components/schemas/PersonalDataInput'
+        spouse_data:
+          type: object
+          nullable: true
+        children_data:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+        address:
+          type: object
+        contact:
+          type: object
+
+    ChangeStatusRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum:
+            - verify_payment
+            - approve
+            - reject_photo
+            - approve_photo
+            - request_correction
+            - resubmit_data
+            - resubmit_photo
+            - retry_payment
+            - submit_official
+            - mark_completed
+            - cancel
+          description: Action to perform on the order
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Employee notes for the action
+        receipt_id:
+          type: string
+          format: uuid
+          description: Required when action is `verify_payment`
+        confirmation_number:
+          type: string
+          pattern: '^2026[A-Z]{2}\d{7}$'
+          description: Required when action is `submit_official`
+
+    PaymentDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          example: 1000
+        currency:
+          type: string
+          default: YER
+        method:
+          type: string
+          enum: [deposit, wallet]
+        provider:
+          type: string
+          nullable: true
+        transfer_number:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, verified, rejected, refunded]
+        rejection_reason:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        verified_by:
+          type: string
+          format: uuid
+          nullable: true
+        verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        action:
+          type: string
+        from_status:
+          type: string
+          nullable: true
+        to_status:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    # ============================================
+    # PAYMENTS
+    # ============================================
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          example: kuraimi
+        name:
+          type: string
+          example: كريمي
+        account_number:
+          type: string
+          example: '0123456789'
+        account_name:
+          type: string
+          example: Qor3a Yemen
+        is_active:
+          type: boolean
+          example: true
+        order:
+          type: integer
+          example: 1
+
+    ReceiptItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+        user_id:
+          type: string
+          format: uuid
+        method:
+          type: string
+        provider:
+          type: string
+          nullable: true
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [pending, verified, rejected, refunded]
+        receipt_image_path:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ============================================
+    # NOTIFICATIONS
+    # ============================================
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          type: string
+          example: status_update
+        channel:
+          type: string
+          enum: [email, sms, whatsapp, pwa]
+        title:
+          type: string
+        body:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, sent, failed, read]
+        sent_at:
+          type: string
+          format: date-time
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    CreateNotificationRequest:
+      type: object
+      required: [user_id, type, title]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          type: string
+          maxLength: 50
+        channel:
+          type: string
+          enum: [email, sms, whatsapp, pwa]
+          default: pwa
+        title:
+          type: string
+          maxLength: 255
+        body:
+          type: string
+          nullable: true
+
+    # ============================================
+    # ADMIN
+    # ============================================
+    AdminStats:
+      type: object
+      properties:
+        totalOrders:
+          type: integer
+        ordersToday:
+          type: integer
+        ordersThisWeek:
+          type: integer
+        ordersThisMonth:
+          type: integer
+        byStatus:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              count:
+                type: integer
+        revenueTotal:
+          type: number
+        revenueToday:
+          type: number
+        revenueThisWeek:
+          type: number
+        byPaymentMethod:
+          type: array
+          items:
+            type: object
+            properties:
+              provider:
+                type: string
+              count:
+                type: integer
+              revenue:
+                type: number
+        ai_stats:
+          type: object
+          properties:
+            total_checked:
+              type: integer
+            accepted:
+              type: integer
+            rejected:
+              type: integer
+            accuracy:
+              type: number
+              format: float
+            avg_time_ms:
+              type: integer
+
+    AdminUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        email:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [client, employee, admin]
+        is_active:
+          type: boolean
+        orders_count:
+          type: integer
+          example: 3
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdateUserRequest:
+      type: object
+      minProperties: 1
+      properties:
+        role:
+          type: string
+          enum: [client, employee, admin]
+        is_active:
+          type: boolean
+        full_name:
+          type: string
+          minLength: 2
+          maxLength: 255
+
+    AdminSettings:
+      type: object
+      properties:
+        pricing:
+          type: object
+          properties:
+            lottery_registration:
+              type: integer
+              example: 1000
+            result_checking:
+              type: integer
+              example: 0
+        payment_accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethod'
+        season:
+          type: object
+          properties:
+            is_open:
+              type: boolean
+            opens_at:
+              type: string
+              format: date-time
+            closes_at:
+              type: string
+              format: date-time
+        rate_limits:
+          type: object
+          properties:
+            login_per_ip_per_min:
+              type: integer
+              example: 5
+            register_per_ip_per_hour:
+              type: integer
+              example: 3
+            orders_per_user_per_min:
+              type: integer
+              example: 10
+
+    UpdateSettingsRequest:
+      type: object
+      minProperties: 1
+      properties:
+        pricing:
+          type: object
+          properties:
+            lottery_registration:
+              type: integer
+              minimum: 0
+            result_checking:
+              type: integer
+              minimum: 0
+        payment_accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMethod'
+        season:
+          type: object
+          properties:
+            is_open:
+              type: boolean
+            opens_at:
+              type: string
+              format: date-time
+            closes_at:
+              type: string
+              format: date-time
+        rate_limits:
+          type: object
+          properties:
+            login_per_ip_per_min:
+              type: integer
+              minimum: 1
+            register_per_ip_per_hour:
+              type: integer
+              minimum: 1
+            orders_per_user_per_min:
+              type: integer
+              minimum: 1
+
+x-state-machine:
+  description: >
+    Qor3a uses a 12-state state machine to manage the order lifecycle.
+    Each transition must be valid, have the correct role permission,
+    and pass any guard conditions before executing.
+  states:
+    - name: draft
+      type: initial
+      description: Order created, no data entered
+      allowed_actions:
+        - action: submit_data
+          by: client
+          to: data_entry_complete
+          guard: first_name && last_name required
+    - name: data_entry_complete
+      type: active
+      description: Applicant data entered, ready for photo
+      allowed_actions:
+        - action: upload_photo
+          by: client
+          to: photo_pending
+        - action: edit_data
+          by: client
+          to: draft
+    - name: photo_pending
+      type: active
+      description: Photo uploaded, awaiting AI validation
+      allowed_actions:
+        - action: approve_photo
+          by: [employee, admin]
+          to: photo_accepted
+          guard: photo_path required
+        - action: reject_photo
+          by: [employee, admin]
+          to: photo_rejected
+    - name: photo_rejected
+      type: active
+      description: Photo failed AI validation, retry needed
+      allowed_actions:
+        - action: retry_photo
+          by: client
+          to: photo_pending
+    - name: photo_accepted
+      type: active
+      description: Photo validated successfully
+      allowed_actions:
+        - action: initiate_payment
+          by: client
+          to: payment_pending
+    - name: payment_pending
+      type: active
+      description: Waiting for receipt upload
+      allowed_actions:
+        - action: verify_payment
+          by: [employee, admin]
+          to: payment_verification
+          guard: receipt_image_path required
+    - name: payment_verification
+      type: active
+      description: Receipt uploaded, awaiting employee verification
+      allowed_actions:
+        - action: approve
+          by: [employee, admin]
+          to: approved
+        - action: request_correction
+          by: [employee, admin]
+          to: needs_correction
+    - name: needs_correction
+      type: active
+      description: Needs correction based on employee feedback
+      allowed_actions:
+        - action: resubmit_data
+          by: client
+          to: data_entry_complete
+        - action: resubmit_photo
+          by: client
+          to: photo_pending
+        - action: retry_payment
+          by: client
+          to: payment_pending
+    - name: approved
+      type: active
+      description: Payment verified, ready for official submission
+      allowed_actions:
+        - action: submit_official
+          by: [employee, admin]
+          to: submitted
+          note: Requires confirmation_number from official site
+    - name: submitted
+      type: active
+      description: Submitted to official DV Lottery website
+      allowed_actions:
+        - action: mark_completed
+          by: admin
+          to: completed
+    - name: completed
+      type: terminal
+      description: Service completed
+      allowed_actions: []
+    - name: cancelled
+      type: terminal
+      description: Order cancelled (admin only)
+      allowed_actions:
+        - action: cancel
+          by: admin
+          from: any
+          note: Can be triggered from any non-terminal state
+
+x-error-codes:
+  - code: VALIDATION_ERROR
+    status: 400
+    message: Request validation failed
+  - code: INVALID_OTP
+    status: 400
+    message: Invalid OTP code
+  - code: INVALID_OTP_RESENT
+    status: 400
+    message: Invalid OTP. A new code has been sent
+  - code: INVALID_AMOUNT
+    status: 400
+    message: Amount must be exactly 1,000 YR
+  - code: UPLOAD_ERROR
+    status: 400
+    message: File upload error
+  - code: INVALID_FILE_TYPE
+    status: 400
+    message: Only JPEG and PNG allowed
+  - code: PHOTO_TOO_LARGE
+    status: 400
+    message: File must be less than 5MB
+  - code: ORDER_CANCELLED
+    status: 400
+    message: Order is cancelled
+  - code: INVALID_ACTION
+    status: 400
+    message: Invalid action
+  - code: MISSING_DATA
+    status: 400
+    message: Required data is missing
+  - code: PHOTO_REQUIRED
+    status: 400
+    message: Photo must be uploaded before acceptance
+  - code: RECEIPT_REQUIRED
+    status: 400
+    message: Receipt must be uploaded before verification
+  - code: UNAUTHORIZED
+    status: 401
+    message: Missing or invalid JWT
+  - code: TOKEN_EXPIRED
+    status: 401
+    message: Token has expired
+  - code: INVALID_TOKEN
+    status: 401
+    message: Invalid token
+  - code: INVALID_REFRESH_TOKEN
+    status: 401
+    message: Invalid or expired refresh token
+  - code: FORBIDDEN
+    status: 403
+    message: Insufficient permissions
+  - code: NOT_FOUND
+    status: 404
+    message: Resource not found
+  - code: USER_NOT_FOUND
+    status: 404
+    message: User not found
+  - code: DUPLICATE_ENTRY
+    status: 409
+    message: Resource already exists
+  - code: PHONE_EXISTS
+    status: 409
+    message: Phone already registered
+  - code: DUPLICATE_RECEIPT
+    status: 409
+    message: This receipt was already submitted
+  - code: DUPLICATE_TRANSFER
+    status: 409
+    message: This transfer number was already used
+  - code: INVALID_TRANSITION
+    status: 409
+    message: Cannot transition from current status
+  - code: INVALID_STATE
+    status: 409
+    message: Cannot perform action in current status
+  - code: OTP_EXPIRED
+    status: 410
+    message: OTP expired or not requested
+  - code: RATE_LIMIT
+    status: 429
+    message: Too many requests
+  - code: OTP_MAX_ATTEMPTS
+    status: 429
+    message: Too many failed OTP attempts
+  - code: OTP_LOCKED
+    status: 429
+    message: Account locked due to too many failed attempts
+  - code: INTERNAL_ERROR
+    status: 500
+    message: Internal server error
+
+x-rate-limits:
+  global:
+    window: 1 minute
+    max: 100 requests
+  endpoints:
+    - path: POST /api/v1/auth/register
+      limit: 3/hour
+      scope: per IP
+    - path: POST /api/v1/auth/login
+      limit: 5/minute
+      scope: per IP
+    - path: POST /api/v1/auth/verify-otp
+      limit: 10/minute
+      scope: per IP
+    - path: POST /api/v1/auth/refresh
+      limit: 10/hour
+      scope: per IP
+    - path: POST /api/v1/orders
+      limit: 10/minute
+      scope: per user
+    - path: POST /api/v1/orders/{id}/photo
+      limit: 5/minute
+      scope: per user
+    - path: POST /api/v1/orders/{id}/payment/receipt
+      limit: 3/minute
+      scope: per user
+    - path: PATCH /api/v1/orders/{id}/status
+      limit: 30/minute
+      scope: per employee
+    - path: ALL /api/v1/admin/*
+      limit: 60/minute
+      scope: per admin

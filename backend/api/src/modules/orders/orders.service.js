@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const db = require('../../database/db');
 const orderModel = require('./orders.model');
 const { AppError } = require('../../common/error-handler');
@@ -152,11 +153,17 @@ const updatePersonalData = async (orderId, userId, data) => {
     await db('applicant_data').where({ order_id: orderId }).update(updateFields);
   }
 
-  const newStatus = order.status === 'draft' ? 'data_entry_complete' : order.status;
+  let newStatus = order.status;
   if (order.status === 'draft') {
     assertTransition('draft', 'data_entry_complete', 'client');
+    newStatus = 'data_entry_complete';
+  } else if (order.status === 'data_entry_complete') {
+    assertTransition('data_entry_complete', 'draft', 'client');
+    newStatus = 'draft';
   }
-  await orderModel.update(orderId, { status: newStatus });
+  if (newStatus !== order.status) {
+    await orderModel.update(orderId, { status: newStatus });
+  }
 
   return orderModel.findById(orderId);
 };
@@ -210,17 +217,37 @@ const uploadReceipt = async (orderId, userId, body, file) => {
     throw new AppError('Cannot upload payment receipt in current status', 409, 'INVALID_STATE');
   }
 
+  const amount = parseFloat(body.amount) || 1000;
+  if (amount !== 1000) {
+    throw new AppError('Amount must be exactly 1,000 YR', 400, 'INVALID_AMOUNT');
+  }
+
+  const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+  const duplicate = await db('payments').where({ receipt_hash: fileHash }).first();
+  if (duplicate) {
+    throw new AppError('This receipt was already submitted', 409, 'DUPLICATE_RECEIPT');
+  }
+
+  const transferNumber = body.transfer_number;
+  if (transferNumber) {
+    const dupTransfer = await db('payments').where({ transfer_number: transferNumber }).first();
+    if (dupTransfer) {
+      throw new AppError('This transfer number was already used', 409, 'DUPLICATE_TRANSFER');
+    }
+  }
+
   const receiptPath = `receipts/${orderId}/receipt.jpg`;
   await storage.save(file.buffer, receiptPath);
 
   const [payment] = await db('payments').insert({
     order_id: orderId,
-    amount: body.amount || 1000,
+    amount,
     currency: 'YER',
     method: 'deposit',
     provider: body.payment_method,
-    transfer_number: body.transfer_number || null,
+    transfer_number: transferNumber || null,
     receipt_image_path: receiptPath,
+    receipt_hash: fileHash,
     status: 'pending',
   }).returning('*');
 
@@ -244,11 +271,14 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   }
 
   const actionMap = {
-    accept_photo: { from: 'photo_pending', to: 'photo_accepted' },
+    approve_photo: { from: 'photo_pending', to: 'photo_accepted' },
     reject_photo: { from: 'photo_pending', to: 'photo_rejected' },
     verify_payment: { from: 'payment_pending', to: 'payment_verification' },
     approve: { from: 'payment_verification', to: 'approved' },
     request_correction: { from: null, to: 'needs_correction' },
+    resubmit_data: { from: 'needs_correction', to: 'data_entry_complete' },
+    resubmit_photo: { from: 'needs_correction', to: 'photo_pending' },
+    retry_payment: { from: 'needs_correction', to: 'payment_pending' },
     submit_official: { from: 'approved', to: 'submitted' },
     mark_completed: { from: 'submitted', to: 'completed' },
     cancel: { from: null, to: 'cancelled' },
@@ -290,8 +320,9 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
     metadata: notes ? { notes } : {},
   });
 
-  if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending', 'photo_accepted'].includes(transition.to)) {
-    await notifier.sendStatusUpdate(order.user_id, transition.to, notes);
+  if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending', 'photo_accepted', 'data_entry_complete'].includes(transition.to)) {
+    const user = await db('users').where({ id: order.user_id }).select('phone').first();
+    await notifier.sendStatusUpdate(order.user_id, orderId, transition.to, notes, user?.phone);
   }
 
   const updated = await orderModel.findById(orderId);

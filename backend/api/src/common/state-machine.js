@@ -2,7 +2,7 @@ const { AppError } = require('./error-handler');
 
 const TRANSITIONS = {
   draft: ['data_entry_complete'],
-  data_entry_complete: ['photo_pending'],
+  data_entry_complete: ['photo_pending', 'draft'],
   photo_pending: ['photo_accepted', 'photo_rejected'],
   photo_rejected: ['photo_pending'],
   photo_accepted: ['payment_pending'],
@@ -17,10 +17,11 @@ const TRANSITIONS = {
 
 const ACTIONS = {
   submit_data: { from: 'draft', to: 'data_entry_complete' },
+  edit_data: { from: 'data_entry_complete', to: 'draft' },
   upload_photo: { from: 'data_entry_complete', to: 'photo_pending' },
   reject_photo: { from: 'photo_pending', to: 'photo_rejected' },
   retry_photo: { from: 'photo_rejected', to: 'photo_pending' },
-  accept_photo: { from: 'photo_pending', to: 'photo_accepted' },
+  approve_photo: { from: 'photo_pending', to: 'photo_accepted' },
   initiate_payment: { from: 'photo_accepted', to: 'payment_pending' },
   verify_payment: { from: 'payment_pending', to: 'payment_verification' },
   approve: { from: 'payment_verification', to: 'approved' },
@@ -34,9 +35,9 @@ const ACTIONS = {
 };
 
 const ROLE_ACTIONS = {
-  client: ['submit_data', 'upload_photo', 'retry_photo', 'initiate_payment', 'resubmit_data', 'resubmit_photo', 'retry_payment'],
-  employee: ['reject_photo', 'accept_photo', 'verify_payment', 'approve', 'request_correction', 'submit_official'],
-  admin: ['reject_photo', 'accept_photo', 'verify_payment', 'approve', 'request_correction', 'submit_official', 'cancel', 'mark_completed'],
+  client: ['submit_data', 'edit_data', 'upload_photo', 'retry_photo', 'initiate_payment', 'resubmit_data', 'resubmit_photo', 'retry_payment'],
+  employee: ['reject_photo', 'approve_photo', 'verify_payment', 'approve', 'request_correction', 'submit_official'],
+  admin: ['reject_photo', 'approve_photo', 'verify_payment', 'approve', 'request_correction', 'submit_official', 'cancel', 'mark_completed'],
 };
 
 const GUARDS = {
@@ -47,17 +48,17 @@ const GUARDS = {
     }
     return true;
   },
-  accept_photo: async (order) => {
+  approve_photo: async (order) => {
     const applicant = await require('../database/db')('applicant_data').where({ order_id: order.id }).first();
     if (!applicant || !applicant.photo_path) {
-      throw new AppError('Photo must be uploaded before acceptance', 400, 'MISSING_DATA');
+      throw new AppError('Photo must be uploaded before acceptance', 400, 'PHOTO_REQUIRED');
     }
     return true;
   },
   verify_payment: async (order) => {
     const payment = await require('../database/db')('payments').where({ order_id: order.id }).first();
     if (!payment || !payment.receipt_image_path) {
-      throw new AppError('Payment receipt must be uploaded before verification', 400, 'MISSING_DATA');
+      throw new AppError('Payment receipt must be uploaded before verification', 400, 'RECEIPT_REQUIRED');
     }
     return true;
   },

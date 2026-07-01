@@ -9,6 +9,7 @@ jest.mock('../../src/common/storage');
 const mockDb = {
   insert: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
   update: jest.fn().mockReturnThis(),
   first: jest.fn().mockResolvedValue(null),
   orderBy: jest.fn().mockReturnThis(),

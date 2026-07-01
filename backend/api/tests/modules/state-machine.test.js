@@ -32,6 +32,10 @@ describe('State Machine', () => {
       expect(getNextStates('draft')).toEqual(['data_entry_complete']);
     });
 
+    test('returns correct next states for data_entry_complete', () => {
+      expect(getNextStates('data_entry_complete')).toEqual(['photo_pending', 'draft']);
+    });
+
     test('returns correct next states for photo_pending', () => {
       expect(getNextStates('photo_pending')).toEqual(['photo_accepted', 'photo_rejected']);
     });
@@ -40,12 +44,17 @@ describe('State Machine', () => {
   describe('assertTransition', () => {
     test('allows employee to accept photo', () => {
       const action = assertTransition('photo_pending', 'photo_accepted', 'employee');
-      expect(action).toBe('accept_photo');
+      expect(action).toBe('approve_photo');
     });
 
     test('allows client to submit data', () => {
       const action = assertTransition('draft', 'data_entry_complete', 'client');
       expect(action).toBe('submit_data');
+    });
+
+    test('allows client to edit data', () => {
+      const action = assertTransition('data_entry_complete', 'draft', 'client');
+      expect(action).toBe('edit_data');
     });
 
     test('blocks client from approving order', () => {

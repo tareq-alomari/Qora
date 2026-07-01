@@ -1,4 +1,5 @@
 const db = require('../../database/db');
+const uuid = require('uuid');
 
 const findById = (id) => {
   return db('orders').where({ id }).first();
@@ -98,7 +99,7 @@ const countAll = ({ status, search }) => {
 };
 
 const create = (data) => {
-  return db('orders').insert(data).returning('*');
+  return db('orders').insert({ id: uuid.v4(), ...data }).returning('*');
 };
 
 const update = (id, data) => {

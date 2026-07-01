@@ -1,8 +1,8 @@
 const paymentService = require('./payments.service');
 
-const getMethods = (req, res, next) => {
+const getMethods = async (req, res, next) => {
   try {
-    const methods = paymentService.getMethods();
+    const methods = await paymentService.getMethods();
     res.json({ data: methods });
   } catch (err) {
     next(err);

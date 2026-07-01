@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Qor3a — قرعة</title>
+  <style>
+    :root {
+      --primary: #1a56db;
+      --primary-light: #e8f0fe;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --warning: #d97706;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Header */
+    header {
+      text-align: center;
+      padding: 3rem 0 2rem;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    header h1 small {
+      display: block;
+      font-size: 1rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+    header p {
+      color: var(--text-muted);
+      margin-top: 0.75rem;
+      font-size: 1.1rem;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-top: 0.75rem;
+    }
+
+    /* Status */
+    .status-bar {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+    .status-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      text-align: center;
+      min-width: 130px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .status-item .label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-item .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-top: 0.25rem;
+    }
+    .status-item .value.ok { color: var(--success); }
+    .status-item .value.degraded { color: var(--warning); }
+    .status-item .value.unknown { color: var(--text-muted); }
+
+    /* Cards */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin: 2rem 0;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(26,86,219,0.12);
+      transform: translateY(-2px);
+    }
+    .card .icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .card h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+    }
+
+    /* Section */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 2rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    /* Quick Links */
+    .links {
+      list-style: none;
+    }
+    .links li {
+      margin-bottom: 0.5rem;
+    }
+    .links a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--primary);
+      font-size: 0.95rem;
+      transition: all 0.15s;
+    }
+    .links a:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+    }
+    .links a .method {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: #fff;
+      min-width: 44px;
+      text-align: center;
+    }
+    .method.get { background: #16a34a; }
+    .method.post { background: #2563eb; }
+    .method.patch { background: #d97706; }
+    .method.delete { background: #dc2626; }
+
+    footer {
+      text-align: center;
+      padding: 2rem 0;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      margin-top: 3rem;
+    }
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>قرعة <small>Qor3a — DV Lottery Registration Platform</small></h1>
+      <p>منصة حجز وتسجيل دخول اليانصيب الأمريكي للتنوع (DV Lottery)</p>
+      <span class="badge">API v1</span>
+    </header>
+
+    <div class="status-bar" id="status-bar">
+      <div class="status-item">
+        <div class="label">API</div>
+        <div class="value ok" id="api-status">✓</div>
+      </div>
+      <div class="status-item">
+        <div class="label">وقت التشغيل</div>
+        <div class="value" id="uptime">-</div>
+      </div>
+      <div class="status-item">
+        <div class="label">الإصدار</div>
+        <div class="value" id="version">-</div>
+      </div>
+    </div>
+
+    <h2 class="section-title">🔧 الوصول السريع</h2>
+    <div class="cards">
+      <a href="/docs" class="card">
+        <div class="icon">📖</div>
+        <h3>توثيق API</h3>
+        <p>تصفح جميع endpoints مع إمكانية الاختبار المباشر (Swagger UI)</p>
+      </a>
+      <a href="/health" class="card">
+        <div class="icon">💚</div>
+        <h3>الفحص الصحي</h3>
+        <p>حالة الخدمة ومدة التشغيل وإصدار API</p>
+      </a>
+      <a href="https://travel.state.gov/content/travel/en/us-visas/immigrate/diversity-visa-program-entry.html" target="_blank" class="card">
+        <div class="icon">🌐</div>
+        <h3>الموقع الرسمي DV Lottery</h3>
+        <p>موقع وزارة الخارجية الأمريكية للتسجيل الرسمي</p>
+      </a>
+    </div>
+
+    <h2 class="section-title">📡 نقاط النهاية API</h2>
+    <ul class="links" id="endpoints">
+      <li><a href="#"><span class="method get">GET</span> /health — فحص صحة الخدمة</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/auth/register — تسجيل مستخدم جديد</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/auth/verify-otp — تأكيد رمز التحقق</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/auth/login — طلب رمز دخول</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/auth/refresh — تجديد التوكن</a></li>
+      <li><a href="#"><span class="method get">GET</span> /api/v1/users/profile — الملف الشخصي</a></li>
+      <li><a href="#"><span class="method patch">PATCH</span> /api/v1/users/profile — تحديث الملف الشخصي</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/orders — إنشاء طلب جديد</a></li>
+      <li><a href="#"><span class="method get">GET</span> /api/v1/orders — قائمة الطلبات</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/orders/{id}/photo — رفع الصورة</a></li>
+      <li><a href="#"><span class="method post">POST</span> /api/v1/orders/{id}/payment/receipt — رفع إيصال الدفع</a></li>
+      <li><a href="#"><span class="method patch">PATCH</span> /api/v1/orders/{id}/status — تغيير حالة الطلب</a></li>
+      <li><a href="#"><span class="method get">GET</span> /api/v1/payments/methods — طرق الدفع المتاحة</a></li>
+      <li><a href="#"><span class="method get">GET</span> /api/v1/admin/stats — إحصائيات لوحة التحكم</a></li>
+      <li><a href="#"><span class="method get">GET</span> /api/v1/admin/settings — إعدادات النظام</a></li>
+    </ul>
+
+    <h2 class="section-title">📚 الروابط</h2>
+    <ul class="links">
+      <li><a href="https://github.com/tareq-alomari/Qora" target="_blank">📦 GitHub — مستودع المشروع</a></li>
+      <li><a href="https://github.com/tareq-alomari/Qora/blob/main/AGENTS.md" target="_blank">📋 AGENTS.md — تعليمات المشروع</a></li>
+      <li><a href="https://github.com/tareq-alomari/Qora/blob/main/analysis/INDEX.md" target="_blank">📑 INDEX.md — فهرس التحليل الكامل</a></li>
+    </ul>
+
+    <footer>
+      <p>Qor3a — قرعة &copy; 2026 | <a href="https://github.com/tareq-alomari/Qora">GitHub</a></p>
+    </footer>
+  </div>
+
+  <script>
+    fetch('/health')
+      .then(r => r.json())
+      .then(data => {
+        const statusEl = document.getElementById('api-status');
+        statusEl.textContent = data.status === 'ok' ? '✓ نشط' : '✗ معطل';
+        statusEl.className = 'value ' + (data.status === 'ok' ? 'ok' : 'degraded');
+
+        document.getElementById('uptime').textContent = Math.floor(data.uptime / 60) + 'د';
+        document.getElementById('version').textContent = data.version;
+
+        if (data.checks) {
+          const checksDiv = document.createElement('div');
+          checksDiv.className = 'status-bar';
+          checksDiv.style.marginTop = '1rem';
+          Object.entries(data.checks).forEach(([name, status]) => {
+            const item = document.createElement('div');
+            item.className = 'status-item';
+            item.innerHTML = '<div class="label">' + name + '</div><div class="value ' + status + '">' + status + '</div>';
+            checksDiv.appendChild(item);
+          });
+          document.getElementById('status-bar').after(checksDiv);
+        }
+      })
+      .catch(() => {
+        document.getElementById('api-status').textContent = '✗ معطل';
+        document.getElementById('api-status').className = 'value degraded';
+      });
+  </script>
+</body>
+</html>

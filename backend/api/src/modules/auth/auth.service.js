@@ -2,12 +2,27 @@ const jwt = require('jsonwebtoken');
 const userModel = require('./auth.model');
 const { AppError } = require('../../common/error-handler');
 const { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken } = require('../../common/redis');
+const notifier = require('../../common/notifier');
 
 const OTP_MAX_ATTEMPTS = 5;
+const OTP_RESEND_AFTER = 3;
+const OTP_LOCK_MINUTES = 30;
 const otpAttempts = {};
+const otpLockedUntil = {};
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const resendOtp = async (phone) => {
+  const otp = generateOtp();
+  await setOtp(phone, otp);
+  otpAttempts[phone] = 0;
+
+  const user = await userModel.findByPhone(phone);
+  if (user) {
+    await notifier.sendOtp(user.id, phone, otp);
+  }
 };
 
 const generateTokens = (user) => {
@@ -22,9 +37,17 @@ const generateTokens = (user) => {
 };
 
 const checkOtpAttempts = (phone) => {
-  const attempts = otpAttempts[phone] || 0;
-  if (attempts >= OTP_MAX_ATTEMPTS) {
-    throw new AppError('Too many attempts. Request a new OTP', 429, 'OTP_MAX_ATTEMPTS');
+  const lockedUntil = otpLockedUntil[phone];
+  if (lockedUntil && Date.now() < lockedUntil) {
+    const remaining = Math.ceil((lockedUntil - Date.now()) / 60000);
+    throw new AppError(
+      `Too many failed attempts. Try again in ${remaining} minutes`,
+      429,
+      'OTP_LOCKED',
+    );
+  }
+  if (lockedUntil) {
+    delete otpLockedUntil[phone];
   }
 };
 
@@ -45,6 +68,8 @@ const register = async (phone, fullName) => {
   await setOtp(phone, otp);
   otpAttempts[phone] = 0;
 
+  await notifier.sendOtp(user[0].id, phone, otp);
+
   return { userId: user[0].id, otpSent: true, otpExpiresIn: 300 };
 };
 
@@ -58,12 +83,30 @@ const verifyOtp = async (phone, otp) => {
   if (stored !== otp) {
     otpAttempts[phone] = (otpAttempts[phone] || 0) + 1;
     const remaining = OTP_MAX_ATTEMPTS - otpAttempts[phone];
+
+    if (otpAttempts[phone] >= OTP_MAX_ATTEMPTS) {
+      otpLockedUntil[phone] = Date.now() + OTP_LOCK_MINUTES * 60 * 1000;
+      throw new AppError(
+        `Too many failed attempts. Account locked for ${OTP_LOCK_MINUTES} minutes`,
+        429,
+        'OTP_LOCKED',
+      );
+    }
+
+    if (otpAttempts[phone] >= OTP_RESEND_AFTER) {
+      await resendOtp(phone);
+      const err = new AppError('Invalid OTP. A new code has been sent', 400, 'INVALID_OTP_RESENT');
+      err.details = [{ field: 'otp', message: 'رمز التحقق غير صحيح. تم إعادة إرسال رمز جديد' }];
+      throw err;
+    }
+
     const err = new AppError('Invalid OTP', 400, 'INVALID_OTP');
     err.details = [{ field: 'otp', message: `رمز التحقق غير صحيح. لديك ${remaining} محاولات متبقية` }];
     throw err;
   }
 
   delete otpAttempts[phone];
+  delete otpLockedUntil[phone];
   await delOtp(phone);
 
   const user = await userModel.findByPhone(phone);
@@ -94,6 +137,8 @@ const login = async (phone) => {
   const otp = generateOtp();
   await setOtp(phone, otp);
   otpAttempts[phone] = 0;
+
+  await notifier.sendOtp(user.id, phone, otp);
 
   return { otpSent: true, otpExpiresIn: 300 };
 };

@@ -1,18 +1,51 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const multer = require('multer');
+const swaggerUi = require('swagger-ui-express');
+const yaml = require('js-yaml');
+const fs = require('fs');
 const { logger } = require('./common/logger');
 const { errorHandler } = require('./common/error-handler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(helmet());
-app.use(cors());
+const apiSpecPath = path.resolve(__dirname, '../../../docs/api-reference/openapi.yaml');
+let swaggerDocument = null;
+try {
+  swaggerDocument = yaml.load(fs.readFileSync(apiSpecPath, 'utf8'));
+  swaggerDocument.servers = [
+    { url: `http://localhost:${PORT}`, description: 'Local development' },
+    ...(swaggerDocument.servers || []),
+  ];
+} catch (err) {
+  logger.warn(`Could not load OpenAPI spec: ${err.message}`);
+}
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ['\'self\''],
+      scriptSrc: ['\'self\'', '\'unsafe-inline\''],
+      styleSrc: ['\'self\'', '\'unsafe-inline\''],
+      imgSrc: ['\'self\'', 'data:', 'https:'],
+      connectSrc: ['\'self\''],
+      fontSrc: ['\'self\'', 'https://fonts.gstatic.com'],
+      objectSrc: ['\'none\''],
+      mediaSrc: ['\'self\''],
+      frameSrc: ['\'none\''],
+    },
+  },
+}));
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, '../public')));
 app.use(
   rateLimit({
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000,
@@ -20,8 +53,31 @@ app.use(
   }),
 );
 
+if (swaggerDocument) {
+  const swaggerOptions = {
+    explorer: true,
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+    },
+    customSiteTitle: 'Qor3a API — قرعة',
+  };
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+}
+
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0',
+    checks: {
+      database: process.env.NODE_ENV === 'test' ? 'ok' : 'unknown',
+      redis: process.env.REDIS_ENABLED !== 'false' ? 'unknown' : 'ok',
+      minio: process.env.S3_ENDPOINT ? 'unknown' : 'ok',
+      ai_service: process.env.AI_SERVICE_URL ? 'unknown' : 'ok',
+    },
+  });
 });
 
 app.use('/api/v1/auth', require('./modules/auth/auth.routes'));

@@ -68,9 +68,9 @@ const updatePersonalDataSchema = Joi.object({
 
 const changeStatusSchema = Joi.object({
   action: Joi.string().valid(
-    'accept_photo', 'reject_photo', 'verify_payment',
-    'approve', 'request_correction', 'submit_official',
-    'mark_completed', 'cancel',
+    'verify_payment', 'approve', 'reject_photo', 'approve_photo',
+    'request_correction', 'resubmit_data', 'resubmit_photo', 'retry_payment',
+    'submit_official', 'mark_completed', 'cancel',
   ).required(),
   notes: Joi.string().max(500).optional().allow(null, ''),
   receipt_id: Joi.string().uuid().when('action', {

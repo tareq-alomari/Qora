@@ -9,6 +9,11 @@ const mockQueryBuilder = {
   orderBy: jest.fn().mockReturnThis(),
 };
 
+jest.mock('../../src/common/notification-queue', () => ({
+  enqueue: jest.fn().mockResolvedValue(),
+  notificationQueue: null,
+}));
+
 jest.mock('../../src/database/db', () => jest.fn(() => mockQueryBuilder));
 const db = require('../../src/database/db');
 

@@ -19,7 +19,7 @@ const create = async (data) => {
     user_id: data.user_id,
     order_id: data.order_id || null,
     type: data.type,
-    channel: data.channel || 'in_app',
+    channel: data.channel || 'pwa',
     title: data.title,
     body: data.body || null,
     status: 'pending',

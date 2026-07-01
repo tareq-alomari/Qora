@@ -1,4 +1,5 @@
 const db = require('../../database/db');
+const uuid = require('uuid');
 
 const findByPhone = (phone) => {
   return db('users').where({ phone }).first();
@@ -9,7 +10,7 @@ const findById = (id) => {
 };
 
 const create = (data) => {
-  return db('users').insert(data).returning('*');
+  return db('users').insert({ id: uuid.v4(), ...data }).returning('*');
 };
 
 const updateLastLogin = (id) => {

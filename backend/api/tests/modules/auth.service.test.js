@@ -5,6 +5,7 @@ const { setOtp, getOtp, delOtp } = require('../../src/common/redis');
 
 jest.mock('../../src/modules/auth/auth.model');
 jest.mock('../../src/common/redis');
+jest.mock('../../src/common/notifier');
 
 describe('Auth Service', () => {
   beforeEach(() => {

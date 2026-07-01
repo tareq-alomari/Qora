@@ -29,7 +29,7 @@ const updateUser = async (req, res, next) => {
 
 const getSettings = async (req, res, next) => {
   try {
-    const settings = adminService.getSettings();
+    const settings = await adminService.getSettings();
     res.json({ data: settings });
   } catch (err) {
     next(err);
@@ -38,7 +38,7 @@ const getSettings = async (req, res, next) => {
 
 const updateSettings = async (req, res, next) => {
   try {
-    const settings = adminService.updateSettings(req.body);
+    const settings = await adminService.updateSettings(req.body, req.user.id);
     res.json({ data: settings, message: 'تم تحديث الإعدادات' });
   } catch (err) {
     next(err);
