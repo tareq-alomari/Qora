@@ -26,7 +26,7 @@ CREATE TYPE order_status AS ENUM (
     'cancelled'
 );
 CREATE TYPE payment_method AS ENUM ('deposit', 'wallet');
-CREATE TYPE payment_provider AS ENUM ('alkuraimi', 'jeeb', 'one_cash', 'mobile_money');
+CREATE TYPE payment_provider AS ENUM ('kuraimi', 'jeeb', 'one_cash', 'mobile_money');
 CREATE TYPE payment_status AS ENUM ('pending', 'verified', 'rejected', 'refunded');
 CREATE TYPE notification_channel AS ENUM ('email', 'sms', 'whatsapp', 'in_app');
 CREATE TYPE notification_status AS ENUM ('pending', 'sent', 'failed', 'read');
@@ -39,7 +39,7 @@ CREATE TABLE users (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email             VARCHAR(255) UNIQUE,
     phone             VARCHAR(20) UNIQUE NOT NULL,
-    password_hash     VARCHAR(255) NOT NULL,
+    password_hash     VARCHAR(255),
     full_name         VARCHAR(255),
     role              user_role DEFAULT 'client',
     is_verified       BOOLEAN DEFAULT FALSE,
@@ -59,7 +59,8 @@ CREATE TABLE orders (
     service_type      service_type DEFAULT 'dv_lottery',
     status            order_status DEFAULT 'draft',
     total_price       DECIMAL(10,2) NOT NULL DEFAULT 0,
-    currency          VARCHAR(3) DEFAULT 'USD',
+    order_number      VARCHAR(20) UNIQUE,
+    currency          VARCHAR(3) DEFAULT 'YER',
     notes             TEXT,
     metadata          JSONB DEFAULT '{}',
     created_at        TIMESTAMPTZ DEFAULT NOW(),
@@ -118,8 +119,8 @@ CREATE TABLE payments (
     id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     order_id          UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     amount            DECIMAL(10,2) NOT NULL,
-    currency          VARCHAR(3) DEFAULT 'USD',
-    method            payment_method DEFAULT 'bank_transfer',
+    currency          VARCHAR(3) DEFAULT 'YER',
+    method            payment_method DEFAULT 'deposit',
     provider          payment_provider,
     transfer_number   VARCHAR(100),
     receipt_image_path VARCHAR(500),
