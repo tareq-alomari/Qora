@@ -1,14 +1,23 @@
 FROM node:20-alpine
 
+RUN apk add --no-cache tini
+
 WORKDIR /app
 
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --only=production
 
 COPY src ./src
 
+RUN addgroup -S qor3a && adduser -S qor3a -G qor3a && \
+    mkdir -p /app/uploads && \
+    chown -R qor3a:qor3a /app
+
+USER qor3a
+
 EXPOSE 3000
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["npm", "start"]

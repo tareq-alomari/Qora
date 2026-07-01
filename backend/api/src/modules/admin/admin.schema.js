@@ -31,4 +31,18 @@ const updateSettingsSchema = Joi.object({
   }).optional(),
 }).min(1).unknown(false);
 
-module.exports = { updateUserSchema, updateSettingsSchema };
+const bulkNotificationSchema = Joi.object({
+  title: Joi.string().min(1).max(255).required(),
+  body: Joi.string().min(1).max(500).required(),
+  channel: Joi.string().valid('pwa', 'whatsapp').default('pwa'),
+  filters: Joi.object({
+    role: Joi.string().valid('client', 'employee', 'admin').optional(),
+    status: Joi.string().valid(
+      'draft', 'data_entry_complete', 'photo_pending', 'photo_rejected',
+      'photo_accepted', 'payment_pending', 'payment_verification',
+      'needs_correction', 'approved', 'submitted', 'completed', 'cancelled'
+    ).optional(),
+  }).default({}),
+});
+
+module.exports = { updateUserSchema, updateSettingsSchema, bulkNotificationSchema };

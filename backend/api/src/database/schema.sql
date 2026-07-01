@@ -98,7 +98,7 @@ CREATE TABLE applicant_data (
 
     -- Eligibility
     education_level   VARCHAR(100),
-    marital_status    VARCHAR(20) CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed')),
+    marital_status    VARCHAR(20) CHECK (marital_status IN ('single', 'married', 'married_usc_lpr', 'divorced', 'widowed', 'legally_separated')),
     spouse_data       JSONB DEFAULT '{}',
     children_data     JSONB DEFAULT '[]',
 
@@ -109,7 +109,9 @@ CREATE TABLE applicant_data (
     alt_phone         VARCHAR(20),
 
     photo_path        VARCHAR(500),
+    photo_hash        VARCHAR(64),
     photo_validation  JSONB DEFAULT '{}',
+    passport_scan_path VARCHAR(500),
 
     -- Submission
     confirmation_number VARCHAR(50),
@@ -171,6 +173,11 @@ CREATE TABLE audit_logs (
     from_status       order_status,
     to_status         order_status,
     metadata          JSONB DEFAULT '{}',
+    flag_level        INTEGER CHECK (flag_level >= 0 AND flag_level <= 4),
+    old_value         JSONB DEFAULT '{}',
+    new_value         JSONB DEFAULT '{}',
+    resource_type     VARCHAR(50),
+    resource_id       UUID,
     ip_address        INET,
     user_agent        TEXT,
     created_at        TIMESTAMPTZ DEFAULT NOW()
@@ -197,6 +204,7 @@ CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_orders_created_at ON orders(created_at);
 CREATE INDEX idx_applicant_data_order_id ON applicant_data(order_id);
+CREATE INDEX idx_applicant_data_photo_hash ON applicant_data(photo_hash) WHERE photo_hash IS NOT NULL;
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_status ON payments(status);
 CREATE INDEX idx_payments_transfer_number ON payments(transfer_number) WHERE transfer_number IS NOT NULL;

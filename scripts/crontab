@@ -1,0 +1,5 @@
+# Daily backup at 2 AM
+0 2 * * * /opt/qor3a/scripts/backup.sh >> /var/log/qor3a-backup.log 2>&1
+
+# Weekly backup to S3 at 3 AM Sunday
+0 3 * * 0 /opt/qor3a/scripts/backup.sh --upload-s3 >> /var/log/qor3a-backup.log 2>&1

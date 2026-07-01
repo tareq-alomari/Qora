@@ -5,8 +5,10 @@ const { AppError } = require('../../common/error-handler');
 const { assertTransition, checkGuard } = require('../../common/state-machine');
 const storage = require('../../common/storage');
 const notifier = require('../../common/notifier');
+const { encrypt, decrypt } = require('../../common/encryption');
+const fraudDetector = require('../../common/fraud-detector');
 
-const create = async (userId, data) => {
+const create = async (userId, data, ip = null) => {
   const active = await orderModel.getActiveOrder(userId);
   if (active) {
     throw new AppError('You already have an active order', 409, 'DUPLICATE_ENTRY');
@@ -33,10 +35,14 @@ const create = async (userId, data) => {
     birth_country: data.personal_data.birth_country || 'YEMEN',
     country_of_eligibility: data.personal_data.country_of_eligibility || 'YEMEN',
     marital_status: data.personal_data.marital_status,
+    education_level: String(data.personal_data.education_level),
     passport_number: data.personal_data.passport_number,
+    encrypted_passport_number: encrypt(data.personal_data.passport_number),
     passport_expiry: data.personal_data.passport_expiry,
     spouse_data: data.spouse_data || {},
+    encrypted_spouse_data: encrypt(data.spouse_data || {}),
     children_data: data.children_data || [],
+    encrypted_children_data: encrypt(data.children_data || []),
     email: data.contact.email || null,
     phone: data.contact.phone,
     alt_phone: data.contact.alt_phone || null,
@@ -48,8 +54,38 @@ const create = async (userId, data) => {
     district: data.address.district || null,
   });
 
+  await db('audit_logs').insert({
+    order_id: order.id,
+    user_id: userId,
+    action: 'create',
+    from_status: null,
+    to_status: 'draft',
+    metadata: {},
+  });
+
+  const accountCheck = await fraudDetector.checkNewAccountOrderRate(userId);
+  if (accountCheck.flagged) {
+    await fraudDetector.flagOrder(
+      order.id, userId,
+      'حساب جديد قدّم عدد طلبات كبير في اليوم الأول',
+      2,
+    );
+  }
+
+  if (ip) {
+    const ipCheck = await fraudDetector.checkIpAccountCount(ip);
+    if (ipCheck.flagged) {
+      await fraudDetector.flagOrder(
+        order.id, userId,
+        `حسابات متعددة من نفس الـ IP (${ipCheck.count} حساب)`,
+        1,
+      );
+    }
+  }
+
   return order;
 };
+
 
 const list = async (userId, role, query) => {
   const page = parseInt(query.page) || 1;
@@ -94,6 +130,21 @@ const getById = async (orderId, userId, role) => {
   const payment = await db('payments').where({ order_id: orderId }).first();
   const auditLog = await db('audit_logs').where({ order_id: orderId }).orderBy('created_at', 'desc');
 
+  if (applicantData) {
+    if (applicantData.encrypted_passport_number) {
+      const decrypted = decrypt(applicantData.encrypted_passport_number);
+      if (decrypted !== null) applicantData.passport_number = decrypted;
+    }
+    if (applicantData.encrypted_spouse_data) {
+      const decrypted = decrypt(applicantData.encrypted_spouse_data);
+      if (decrypted !== null) applicantData.spouse_data = decrypted;
+    }
+    if (applicantData.encrypted_children_data) {
+      const decrypted = decrypt(applicantData.encrypted_children_data);
+      if (decrypted !== null) applicantData.children_data = decrypted;
+    }
+  }
+
   return {
     ...order,
     personal_data: applicantData || null,
@@ -102,7 +153,7 @@ const getById = async (orderId, userId, role) => {
   };
 };
 
-const updatePersonalData = async (orderId, userId, data) => {
+const updatePersonalData = async (orderId, userId, data, ip = null) => {
   const order = await orderModel.findById(orderId);
   if (!order) {
     throw new AppError('Order not found', 404, 'NOT_FOUND');
@@ -129,12 +180,20 @@ const updatePersonalData = async (orderId, userId, data) => {
       birth_country: data.personal_data.birth_country,
       country_of_eligibility: data.personal_data.country_of_eligibility,
       marital_status: data.personal_data.marital_status,
+      education_level: data.personal_data.education_level ? String(data.personal_data.education_level) : undefined,
       passport_number: data.personal_data.passport_number,
+      encrypted_passport_number: encrypt(data.personal_data.passport_number),
       passport_expiry: data.personal_data.passport_expiry,
     });
   }
-  if (data.spouse_data !== undefined) updateFields.spouse_data = data.spouse_data;
-  if (data.children_data !== undefined) updateFields.children_data = data.children_data;
+  if (data.spouse_data !== undefined) {
+    updateFields.spouse_data = data.spouse_data;
+    updateFields.encrypted_spouse_data = encrypt(data.spouse_data);
+  }
+  if (data.children_data !== undefined) {
+    updateFields.children_data = data.children_data;
+    updateFields.encrypted_children_data = encrypt(data.children_data);
+  }
   if (data.address) {
     updateFields.address_line1 = data.address.street;
     updateFields.address_line2 = data.address.district || null;
@@ -160,9 +219,32 @@ const updatePersonalData = async (orderId, userId, data) => {
   } else if (order.status === 'data_entry_complete') {
     assertTransition('data_entry_complete', 'draft', 'client');
     newStatus = 'draft';
+  } else if (order.status === 'needs_correction') {
+    assertTransition('needs_correction', 'data_entry_complete', 'client');
+    newStatus = 'data_entry_complete';
   }
   if (newStatus !== order.status) {
     await orderModel.update(orderId, { status: newStatus });
+    const action = order.status === 'draft' ? 'submit_data' : order.status === 'needs_correction' ? 'resubmit_data' : 'edit_data';
+    await db('audit_logs').insert({
+      order_id: orderId,
+      user_id: userId,
+      action,
+      from_status: order.status,
+      to_status: newStatus,
+      metadata: {},
+    });
+
+    if (newStatus === 'data_entry_complete') {
+      const speedCheck = await fraudDetector.checkSubmissionSpeed(orderId, userId);
+      if (speedCheck.flagged) {
+        await fraudDetector.flagOrder(
+          orderId, userId,
+          `إدخال سريع جداً - ${speedCheck.timeSeconds} ثانية فقط بين الخطوات`,
+          1,
+        );
+      }
+    }
   }
 
   return orderModel.findById(orderId);
@@ -175,18 +257,48 @@ const uploadPhoto = async (orderId, userId, file) => {
   if (order.status === 'cancelled') {
     throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
   }
-  if (order.status !== 'data_entry_complete' && order.status !== 'photo_rejected') {
+  if (order.status !== 'data_entry_complete' && order.status !== 'photo_rejected' && order.status !== 'needs_correction') {
     throw new AppError('Cannot upload photo in current status', 409, 'INVALID_STATE');
+  }
+
+  const photoHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+  const dupPhoto = await db('applicant_data').where({ photo_hash: photoHash }).whereNotNull('photo_path').first();
+  if (dupPhoto) {
+    throw new AppError('These photos were already used in another order', 409, 'DUPLICATE_PHOTO');
   }
 
   const photoPath = `orders/${orderId}/photo.jpg`;
   await storage.save(file.buffer, photoPath);
-  await db('applicant_data').where({ order_id: orderId }).update({ photo_path: photoPath });
+  await db('applicant_data').where({ order_id: orderId }).update({ photo_path: photoPath, photo_hash: photoHash });
 
   const newStatus = 'photo_pending';
   await orderModel.update(orderId, { status: newStatus });
 
+  await db('audit_logs').insert({
+    order_id: orderId,
+    user_id: userId,
+    action: 'upload_photo',
+    from_status: order.status,
+    to_status: newStatus,
+    metadata: {},
+  });
+
   return { photo_path: photoPath, photo_url: storage.getUrl(photoPath), status: newStatus, ai_check: { status: 'processing', estimated_time: 3 } };
+};
+
+const uploadPassportScan = async (orderId, userId, file) => {
+  const order = await orderModel.findById(orderId);
+  if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+  if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
+  if (order.status === 'cancelled') {
+    throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  }
+
+  const passportPath = `orders/${orderId}/passport.jpg`;
+  await storage.save(file.buffer, passportPath);
+  await db('applicant_data').where({ order_id: orderId }).update({ passport_scan_path: passportPath });
+
+  return { passport_scan_path: passportPath, passport_scan_url: storage.getUrl(passportPath) };
 };
 
 const getPhotoStatus = async (orderId, userId) => {
@@ -213,7 +325,7 @@ const uploadReceipt = async (orderId, userId, body, file) => {
   if (order.status === 'cancelled') {
     throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
   }
-  if (order.status !== 'photo_accepted') {
+  if (order.status !== 'photo_accepted' && order.status !== 'needs_correction') {
     throw new AppError('Cannot upload payment receipt in current status', 409, 'INVALID_STATE');
   }
 
@@ -252,6 +364,15 @@ const uploadReceipt = async (orderId, userId, body, file) => {
   }).returning('*');
 
   await orderModel.update(orderId, { status: 'payment_pending' });
+
+  await db('audit_logs').insert({
+    order_id: orderId,
+    user_id: userId,
+    action: 'initiate_payment',
+    from_status: order.status,
+    to_status: 'payment_pending',
+    metadata: {},
+  });
 
   return {
     receipt_id: payment.id,
@@ -298,6 +419,17 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   assertTransition(order.status, transition.to, role);
   await checkGuard(action, order);
 
+  if (action === 'verify_payment') {
+    const throughputCheck = await fraudDetector.checkEmployeeThroughput(userId);
+    if (throughputCheck.flagged) {
+      await fraudDetector.flagOrder(
+        orderId, userId,
+        `نشاط غير طبيعي للموظف - ${throughputCheck.count} تأكيد في الساعة`,
+        2,
+      );
+    }
+  }
+
   if (action === 'submit_official' && confirmation_number) {
     await db('applicant_data').where({ order_id: orderId }).update({
       confirmation_number,
@@ -322,7 +454,7 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
 
   if (['approved', 'submitted', 'completed', 'cancelled', 'needs_correction', 'photo_rejected', 'payment_pending', 'photo_accepted', 'data_entry_complete'].includes(transition.to)) {
     const user = await db('users').where({ id: order.user_id }).select('phone').first();
-    await notifier.sendStatusUpdate(order.user_id, orderId, transition.to, notes, user?.phone);
+    await notifier.sendStatusUpdate(order.user_id, orderId, transition.to, notes, user?.phone, confirmation_number);
   }
 
   const updated = await orderModel.findById(orderId);
@@ -335,6 +467,7 @@ module.exports = {
   getById,
   updatePersonalData,
   uploadPhoto,
+  uploadPassportScan,
   getPhotoStatus,
   uploadReceipt,
   changeStatus,

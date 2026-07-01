@@ -1,5 +1,6 @@
 require('dotenv').config();
 const path = require('path');
+const db = require('./database/db');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -32,17 +33,26 @@ app.use(helmet({
     directives: {
       defaultSrc: ['\'self\''],
       scriptSrc: ['\'self\'', '\'unsafe-inline\''],
-      styleSrc: ['\'self\'', '\'unsafe-inline\''],
-      imgSrc: ['\'self\'', 'data:', 'https:'],
+      styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https://fonts.googleapis.com'],
+      fontSrc: ['\'self\'', 'https://fonts.gstatic.com', 'data:'],
+      imgSrc: ['\'self\'', 'https:', 'data:'],
       connectSrc: ['\'self\''],
-      fontSrc: ['\'self\'', 'https://fonts.gstatic.com'],
-      objectSrc: ['\'none\''],
-      mediaSrc: ['\'self\''],
-      frameSrc: ['\'none\''],
     },
   },
+  crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), geolocation=()');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin) {
+  console.error('FATAL: CORS_ORIGIN environment variable is required');
+  process.exit(1);
+}
+app.use(cors({ origin: corsOrigin.split(','), credentials: true }));
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, '../public')));
@@ -65,19 +75,49 @@ if (swaggerDocument) {
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
 }
 
-app.get('/health', (req, res) => {
-  res.json({
+app.get('/health', async (req, res) => {
+  const checks = {
     status: 'ok',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
     version: '1.0.0',
     checks: {
-      database: process.env.NODE_ENV === 'test' ? 'ok' : 'unknown',
-      redis: process.env.REDIS_ENABLED !== 'false' ? 'unknown' : 'ok',
-      minio: process.env.S3_ENDPOINT ? 'unknown' : 'ok',
-      ai_service: process.env.AI_SERVICE_URL ? 'unknown' : 'ok',
+      database: 'unknown',
+      redis: 'unknown',
+      storage: 'unknown',
     },
-  });
+  };
+
+  try {
+    await db.raw('SELECT 1');
+    checks.checks.database = 'ok';
+  } catch {
+    checks.checks.database = 'error';
+    checks.status = 'degraded';
+  }
+
+  try {
+    const { redis: redisClient } = require('./common/redis');
+    if (redisClient) {
+      await redisClient.ping();
+      checks.checks.redis = 'ok';
+    } else {
+      checks.checks.redis = 'disabled';
+    }
+  } catch {
+    checks.checks.redis = 'unavailable';
+  }
+
+  try {
+    const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+    fs.accessSync(uploadDir, fs.constants.W_OK);
+    checks.checks.storage = 'ok';
+  } catch {
+    checks.checks.storage = 'error';
+    checks.status = 'degraded';
+  }
+
+  const statusCode = checks.status === 'ok' ? 200 : 503;
+  res.status(statusCode).json(checks);
 });
 
 app.use('/api/v1/auth', require('./modules/auth/auth.routes'));
@@ -85,6 +125,9 @@ app.use('/api/v1/users', require('./modules/users/users.routes'));
 app.use('/api/v1/orders', require('./modules/orders/orders.routes'));
 app.use('/api/v1/payments', require('./modules/payments/payments.routes'));
 app.use('/api/v1/notifications', require('./modules/notifications/notifications.routes'));
+app.use('/api/v1', require('./modules/results/results.routes'));
+app.use('/api/v1/orders', require('./modules/results/results.routes'));
+app.use('/api/v1/push-subscriptions', require('./modules/push-subscriptions/push-subscriptions.routes'));
 app.use('/api/v1/admin', require('./modules/admin/admin.routes'));
 
 app.use((req, res) => {
@@ -109,8 +152,10 @@ app.use((err, req, res, next) => {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`qor3a API running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    logger.info(`qor3a API running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

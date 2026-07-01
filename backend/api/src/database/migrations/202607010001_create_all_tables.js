@@ -75,6 +75,7 @@ exports.up = function (knex) {
         t.string('alt_phone', 20);
         t.string('photo_path', 500);
         t.jsonb('photo_validation').defaultTo('{}');
+        t.string('passport_scan_path', 500);
         t.string('confirmation_number', 50);
         t.timestamp('submitted_at');
         t.uuid('submitted_by').references('id').inTable('users');
@@ -136,7 +137,7 @@ exports.up = function (knex) {
     )
     .then(() => knex.raw(`
       ALTER TABLE applicant_data ADD CONSTRAINT chk_gender CHECK (gender IN ('male', 'female'));
-      ALTER TABLE applicant_data ADD CONSTRAINT chk_marital_status CHECK (marital_status IN ('single', 'married', 'divorced', 'widowed'));
+      ALTER TABLE applicant_data ADD CONSTRAINT chk_marital_status CHECK (marital_status IN ('single', 'married', 'married_usc_lpr', 'divorced', 'widowed', 'legally_separated'));
       ALTER TABLE orders ADD CONSTRAINT chk_result CHECK (result IN ('winner', 'loser'));
 
       CREATE INDEX idx_users_email ON users(email) WHERE email IS NOT NULL;

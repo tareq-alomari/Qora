@@ -8,6 +8,8 @@ import RegisterPage from './client/pages/auth/RegisterPage'
 import LotteryWizard from './client/pages/lottery/LotteryWizard'
 import ClientDashboard from './client/pages/dashboard/ClientDashboard'
 import CheckResult from './client/pages/check-result/CheckResult'
+import HelpPage from './client/pages/help/HelpPage'
+import OrderStatusPage from './client/pages/orders/OrderStatusPage'
 
 // Client Layout
 import ClientLayout from './client/layouts/ClientLayout'
@@ -21,12 +23,15 @@ import PaymentVerify from './dashboard/pages/payments/PaymentVerify'
 import SubmitList from './dashboard/pages/submit/SubmitList'
 import SubmitConfirmation from './dashboard/pages/submit/SubmitConfirmation'
 import CheckResultsList from './dashboard/pages/check-results/CheckResultsList'
+import ProfilePage from './dashboard/pages/profile/ProfilePage'
 
 // Admin Pages
+import AdminOrdersList from './dashboard/pages/admin-orders/AdminOrdersList'
 import UsersManagement from './dashboard/pages/users/UsersManagement'
 import ReportsPage from './dashboard/pages/reports/ReportsPage'
 import AuditLogPage from './dashboard/pages/audit-log/AuditLogPage'
 import SettingsPage from './dashboard/pages/settings/SettingsPage'
+import BulkNotificationsPage from './dashboard/pages/notifications/BulkNotificationsPage'
 
 // Dashboard Layout
 import DashboardLayout from './dashboard/layouts/DashboardLayout'
@@ -51,11 +56,13 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/help" element={<HelpPage />} />
 
         {/* Client-only routes */}
         <Route element={<ProtectedRoute role={['client']} />}>
           <Route path="/lottery/*" element={<LotteryWizard />} />
           <Route path="/my-account" element={<ClientDashboard />} />
+          <Route path="/orders/:id" element={<OrderStatusPage />} />
           <Route path="/check-result" element={<CheckResult />} />
         </Route>
       </Route>
@@ -81,13 +88,16 @@ export default function App() {
         <Route path="submit" element={<SubmitList />} />
         <Route path="submit/:id" element={<SubmitConfirmation />} />
         <Route path="check-results" element={<CheckResultsList />} />
+        <Route path="profile" element={<ProfilePage />} />
 
         {/* Admin-only routes */}
         <Route element={<ProtectedRoute role={['admin']} />}>
+          <Route path="admin/orders" element={<AdminOrdersList />} />
           <Route path="admin/users" element={<UsersManagement />} />
           <Route path="admin/reports" element={<ReportsPage />} />
           <Route path="admin/audit-log" element={<AuditLogPage />} />
           <Route path="admin/settings" element={<SettingsPage />} />
+          <Route path="admin/notifications" element={<BulkNotificationsPage />} />
         </Route>
       </Route>
 

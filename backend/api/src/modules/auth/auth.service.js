@@ -1,14 +1,12 @@
 const jwt = require('jsonwebtoken');
 const userModel = require('./auth.model');
 const { AppError } = require('../../common/error-handler');
-const { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken } = require('../../common/redis');
+const { setOtp, getOtp, delOtp, setRefreshToken, getRefreshToken, delRefreshToken, setOtpAttempts, getOtpAttempts, delOtpAttempts, setOtpLocked, getOtpLocked, delOtpLocked } = require('../../common/redis');
 const notifier = require('../../common/notifier');
 
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_AFTER = 3;
 const OTP_LOCK_MINUTES = 30;
-const otpAttempts = {};
-const otpLockedUntil = {};
 
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -17,7 +15,6 @@ const generateOtp = () => {
 const resendOtp = async (phone) => {
   const otp = generateOtp();
   await setOtp(phone, otp);
-  otpAttempts[phone] = 0;
 
   const user = await userModel.findByPhone(phone);
   if (user) {
@@ -36,22 +33,18 @@ const generateTokens = (user) => {
   return { accessToken, refreshToken };
 };
 
-const checkOtpAttempts = (phone) => {
-  const lockedUntil = otpLockedUntil[phone];
-  if (lockedUntil && Date.now() < lockedUntil) {
-    const remaining = Math.ceil((lockedUntil - Date.now()) / 60000);
+const checkOtpAttempts = async (phone) => {
+  const locked = await getOtpLocked(phone);
+  if (locked) {
     throw new AppError(
-      `Too many failed attempts. Try again in ${remaining} minutes`,
+      `Too many failed attempts. Try again in ${OTP_LOCK_MINUTES} minutes`,
       429,
       'OTP_LOCKED',
     );
   }
-  if (lockedUntil) {
-    delete otpLockedUntil[phone];
-  }
 };
 
-const register = async (phone, fullName) => {
+const register = async (phone, fullName, ip = null) => {
   const existing = await userModel.findByPhone(phone);
   if (existing) {
     throw new AppError('Phone already registered', 409, 'PHONE_EXISTS');
@@ -61,12 +54,12 @@ const register = async (phone, fullName) => {
     phone,
     full_name: fullName || null,
     role: 'client',
-    metadata: {},
+    metadata: ip ? { registration_ip: ip } : {},
   });
 
   const otp = generateOtp();
   await setOtp(phone, otp);
-  otpAttempts[phone] = 0;
+  await setOtpAttempts(phone, 0);
 
   await notifier.sendOtp(user[0].id, phone, otp);
 
@@ -74,18 +67,20 @@ const register = async (phone, fullName) => {
 };
 
 const verifyOtp = async (phone, otp) => {
-  checkOtpAttempts(phone);
+  await checkOtpAttempts(phone);
 
   const stored = await getOtp(phone);
   if (!stored) {
     throw new AppError('OTP expired or not requested', 410, 'OTP_EXPIRED');
   }
   if (stored !== otp) {
-    otpAttempts[phone] = (otpAttempts[phone] || 0) + 1;
-    const remaining = OTP_MAX_ATTEMPTS - otpAttempts[phone];
+    const currentAttempts = await getOtpAttempts(phone) || 0;
+    const newAttempts = currentAttempts + 1;
+    await setOtpAttempts(phone, newAttempts);
+    const remaining = OTP_MAX_ATTEMPTS - newAttempts;
 
-    if (otpAttempts[phone] >= OTP_MAX_ATTEMPTS) {
-      otpLockedUntil[phone] = Date.now() + OTP_LOCK_MINUTES * 60 * 1000;
+    if (newAttempts >= OTP_MAX_ATTEMPTS) {
+      await setOtpLocked(phone, OTP_LOCK_MINUTES * 60);
       throw new AppError(
         `Too many failed attempts. Account locked for ${OTP_LOCK_MINUTES} minutes`,
         429,
@@ -93,7 +88,7 @@ const verifyOtp = async (phone, otp) => {
       );
     }
 
-    if (otpAttempts[phone] >= OTP_RESEND_AFTER) {
+    if (newAttempts >= OTP_RESEND_AFTER) {
       await resendOtp(phone);
       const err = new AppError('Invalid OTP. A new code has been sent', 400, 'INVALID_OTP_RESENT');
       err.details = [{ field: 'otp', message: 'رمز التحقق غير صحيح. تم إعادة إرسال رمز جديد' }];
@@ -105,8 +100,8 @@ const verifyOtp = async (phone, otp) => {
     throw err;
   }
 
-  delete otpAttempts[phone];
-  delete otpLockedUntil[phone];
+  await delOtpAttempts(phone);
+  await delOtpLocked(phone);
   await delOtp(phone);
 
   const user = await userModel.findByPhone(phone);
@@ -136,7 +131,7 @@ const login = async (phone) => {
 
   const otp = generateOtp();
   await setOtp(phone, otp);
-  otpAttempts[phone] = 0;
+  await setOtpAttempts(phone, 0);
 
   await notifier.sendOtp(user.id, phone, otp);
 
@@ -175,4 +170,8 @@ const refresh = async (token) => {
   };
 };
 
-module.exports = { register, verifyOtp, login, refresh };
+const logout = async (userId) => {
+  await delRefreshToken(userId);
+};
+
+module.exports = { register, verifyOtp, login, refresh, logout };

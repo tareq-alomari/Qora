@@ -1,3 +1,8 @@
+process.env.CORS_ORIGIN = 'http://localhost:5173';
+process.env.JWT_SECRET = 'test-secret';
+process.env.UPLOAD_DIR = '/tmp/qor3a-test-uploads';
+process.env.ENCRYPTION_KEY = 'test-encryption-key-32chars!';
+
 const request = require('supertest');
 const jwt = require('jsonwebtoken');
 
@@ -15,6 +20,9 @@ let app;
 let db;
 
 beforeAll(async () => {
+  const fs = require('fs');
+  fs.mkdirSync(process.env.UPLOAD_DIR, { recursive: true });
+
   db = require('../../src/database/db');
 
   await db.schema
@@ -29,6 +37,8 @@ beforeAll(async () => {
       t.boolean('is_active').defaultTo(true);
       t.string('last_login_at');
       t.text('metadata').defaultTo('{}');
+      t.text('encrypted_email');
+      t.text('encrypted_phone');
       t.string('created_at').defaultTo(db.fn.now());
       t.string('updated_at').defaultTo(db.fn.now());
     })
@@ -73,6 +83,9 @@ beforeAll(async () => {
       t.string('alt_phone', 20);
       t.string('photo_path', 500);
       t.text('photo_validation').defaultTo('{}');
+      t.text('encrypted_passport_number');
+      t.text('encrypted_spouse_data');
+      t.text('encrypted_children_data');
       t.string('confirmation_number', 50);
       t.string('submitted_at');
       t.string('submitted_by').references('id').inTable('users');
@@ -137,6 +150,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.destroy();
+  const fs = require('fs');
+  fs.rmSync(process.env.UPLOAD_DIR, { recursive: true, force: true });
 });
 
 const seedSettings = async () => {
@@ -250,7 +265,8 @@ describe('API Integration', () => {
             first_name: 'أحمد', last_name: 'علي', gender: 'male',
             birth_date: '1995-03-15', birth_city: 'صنعاء',
             birth_country: 'YEMEN', country_of_eligibility: 'YEMEN',
-            marital_status: 'single', passport_number: '012345678',
+            marital_status: 'single', education_level: 6,
+            passport_number: '012345678',
             passport_expiry: '2030-01-01',
           },
           address: { street: 'شارع', city: 'صنعاء', country: 'YEMEN' },
