@@ -4,11 +4,9 @@
   <p>نصف السعر • ضعف الخدمة • من جوالك في 5 دقائق</p>
 
   <p>
-    <img src="https://img.shields.io/badge/status-MVP-yellow" alt="Status">
+    <img src="https://img.shields.io/badge/status-Beta-green" alt="Status">
     <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
-    <img src="https://img.shields.io/badge/analysis-68%20files%20%7C%209%20phases-brightgreen" alt="Analysis">
-    <img src="https://img.shields.io/badge/stack-Node.js%20%7C%20React%20%7C%20PostgreSQL-green" alt="Stack">
-    <img src="https://img.shields.io/badge/tests-133%20passing-brightgreen" alt="Tests">
+    <img src="https://img.shields.io/badge/tests-196%20passing-brightgreen" alt="Tests">
   </p>
 </div>
 
@@ -16,7 +14,7 @@
 
 ## 📋 نبذة
 
-**قرعة** منصة SaaS يمنية تبدأ كمساعد آلي للتسجيل في قرعة DV Lottery (التنوع) بـ **1,000 YR** — نصف سعر المكاتب (2,000 YR). العميل يسجل من هاتفه: إدخال بيانات → تصوير (AI) → دفع → مراجعة بشرية → إدخال رسمي → فحص نتيجة.
+**قرعة** منصة SaaS يمنية للتسجيل الآلي في قرعة DV Lottery (التنوع) — العميل يسجل من هاتفه: إدخال بيانات ← تصوير (AI) ← دفع ← مراجعة بشرية ← إدخال رسمي عبر متصفح آلي ← فحص النتيجة.
 
 > **نحن لا نبيع التسجيل المجاني — نبيع راحة البال والاحترافية وتوفير الوقت.**
 
@@ -25,70 +23,11 @@
 ## 🚀 رحلة العميل
 
 ```
-📱 دخول → 📝 بيانات → 📸 تصوير (AI) → 💳 دفع → 👨‍💼 مراجعة → 🌐 تسجيل رسمي → 📩 تأكيد → 🔍 فحص نتيجة
+📱 تسجيل دخول → 📝 إدخال بيانات → 📸 تصوير (AI) → 💳 دفع → 👨‍💼 مراجعة موظف
+→ 🌐 إدخال رسمي (Headless) → 🔍 فحص النتيجة
 ```
 
 **الزمن الإجمالي: < 5 دقائق** | الدفع عبر إيداع في حسابات قرعة (كريمي • جيب • ون كاش • موبايل موني)
-
----
-
-## 🔐 التوثيق (Authentication) — 3 طرق
-
-### 📱 1. الدخول برقم الهاتف + OTP
-- يناسب المستخدمين اليمنيين (لا يحتاج بريد إلكتروني)
-- إرسال رمز 6 أرقام عبر WhatsApp/SMS → صلاحية 5 دقائق
-- Rate Limit: 3/ساعة للتسجيل، 5/دقيقة لتسجيل الدخول
-
-**API:**
-```bash
-# طلب رمز
-curl -X POST http://localhost:3000/api/v1/auth/register \
-  -H 'Content-Type: application/json' \
-  -d '{"phone":"9677XXXXXXXX"}'
-
-# أو تسجيل دخول
-curl -X POST http://localhost:3000/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"phone":"9677XXXXXXXX"}'
-
-# تأكيد الرمز
-curl -X POST http://localhost:3000/api/v1/auth/verify-otp \
-  -H 'Content-Type: application/json' \
-  -d '{"phone":"9677XXXXXXXX","otp":"123456"}'
-```
-
-### 📧 2. البريد الإلكتروني + كلمة المرور
-- تسجيل كامل: الاسم + البريد + الهاتف + كلمة المرور
-- bcrypt hash + JWT (24h access + 7d refresh)
-- يتم تحديث التوكين تلقائياً عبر axios interceptor (401 → refresh → retry)
-
-**API:**
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/register-email \
-  -H 'Content-Type: application/json' \
-  -d '{"full_name":"محمد أحمد","email":"user@example.com","phone":"9677XXXXXXXX","password":"mypassword123"}'
-
-curl -X POST http://localhost:3000/api/v1/auth/login-email \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"admin@qor3a.ye","password":"admin123"}'
-```
-
-### 🌐 3. Google OAuth
-- يستخدم Google Identity Services (GIS) — popup من الموقع الرسمي
-- إرسال ID token → التحقق في الباكند عبر `google-auth-library`
-- إذا كان البريد موجوداً مسبقاً، يربط حساب Google به
-- يتطلب تفعيل `GOOGLE_CLIENT_ID` في `.env` — بدونه يظهر الزر كـ "قريباً"
-
-**API:**
-```bash
-curl -X POST http://localhost:3000/api/v1/auth/google \
-  -H 'Content-Type: application/json' \
-  -d '{"id_token":"<token_from_google>"}'
-```
-
-### 🔄 تحديث التوكين (Refresh)
-- httpOnly cookie على المسار `/api/v1/auth/refresh`
-- axios interceptor يكتشف 401 → يرسل طلب refresh → يعيد الطلبات المعلقة
 
 ---
 
@@ -96,63 +35,11 @@ curl -X POST http://localhost:3000/api/v1/auth/google \
 
 | القاعدة | الشرح |
 |---------|-------|
-| **🛑 الصورة لا تُعدّل** | ممنوع تغيير أي بكسل — AI يتحقق فقط (Background, Centering, Lighting). وزارة الخارجية ترفض الصور المعدلة |
+| **🛑 الصورة لا تُعدّل** | ممنوع تغيير أي بكسل — AI يتحقق فقط (خلفية بيضاء، توسيط، إضاءة). وزارة الخارجية ترفض الصور المعدلة |
 | **💳 دفع يدوي** | العميل يحوّل لحسابات قرعة ← يرفع صورة الإشعار ← موظف يؤكد. لا API للدفع |
 | **🤖 CAPTCHA** | 2Captcha API + طابور يدوي احتياطي + Proxy Rotation للموقع الرسمي |
-| **📱 جوال أولاً** | تصميم 360-414px، PWA، أداء على 3G |
+| **📱 جوال أولاً** | تصميم متجاوب، PWA، أداء على شبكات ضعيفة |
 | **💰 العملة** | ريال يمني (YR) لكل التعاملات |
-
----
-
-## 🏗️ هيكل المشروع
-
-```
-qor3a/
-├── analysis/                      # 📚 تحليل شامل — 68 ملفاً، 9 أقسام
-│   ├── 01_Business_and_Vision/    # نموذج العمل، السوق، الجدوى، المخاطر
-│   ├── 02_Requirements_Engineering/ # PRD، المتطلبات، الشخصيات، الصلاحيات
-│   ├── 03_System_Architecture/    # Mermaid: ERD، State Machine، ADRs، DFDs
-│   ├── 04_Database_Design/        # SQL، Caching، Data Dictionary
-│   ├── 05_API_and_Integrations/   # REST API، تكاملات خارجية، إشعارات
-│   ├── 06_UI_UX_Design/           # Journey، Wireframes، Design System، Mobile، Site Map
-│   ├── 07_DevOps_and_Deployment/  # CI/CD، Docker، Monitoring، Runbook
-│   ├── 08_Security_and_Risks/     # Threat Model، RBAC، Privacy، Fraud
-│   └── 09_Testing_and_QA/         # Test Cases، Performance، UAT
-│
-├── backend/
-│   ├── api/                       # 🟢 [Active] Node.js + Express (Modular Monolith)
-│   │   ├── src/
-│   │   │   ├── common/            # Auth, Error, Logger, Validator, Fraud Detector
-│   │   │   ├── database/          # Knex migrations (9 ملفات) + schema + seeds
-│   │   │   ├── modules/           # Auth, Orders, Payments, Notifications, Admin, Results
-│   │   │   │   └── {module}/
-│   │   │   │       ├── {module}.routes.js
-│   │   │   │       ├── {module}.controller.js
-│   │   │   │       ├── {module}.service.js
-│   │   │   │       └── {module}.model.js
-│   │   │   └── index.js
-│   │   └── tests/                 # 133 اختبار (Jest)
-│   ├── ai/                        # ⏳ [Pending] Python + FastAPI (Photo Validation)
-│   └── headless/                  # ⏳ [Pending] Node.js + Puppeteer (Automation)
-│
-├── frontend/                      # 🟢 [Active] React + Vite + Tailwind + Zustand
-│   ├── src/
-│   │   ├── client/                # Landing, Auth (3 طرق), Wizard (8 خطوات), Dashboard
-│   │   ├── dashboard/             # Employee Profile, Orders, Payments, Admin Pages
-│   │   └── common/                # OtpInput, ExportButton, Pagination, StatusBadge...
-│   └── index.html                 # PWA + RTL
-│
-├── infra/                         # 🐳 Docker، Docker Compose، nginx
-├── docs/                          # 📖 توثيق API (OpenAPI 3.0.3 — 27 Endpoint)
-├── scripts/                       # 🔧 سكريبتات مساعدة
-├── analysis/06_UI_UX_Design/10_Site_Map.md  # خريطة الموقع (43 صفحة)
-│
-├── README.md                      # 👈 هذا الملف
-├── AGENTS.md                      # تعليمات الذكاء الاصطناعي
-└── .env.example                   # قالب متغيرات البيئة
-```
-
-**عدد الملفات:** 45+ باكند | 60+ فرونت | 68 تحليل | 133 اختبار | ~2,304 سطر OpenAPI
 
 ---
 
@@ -160,27 +47,26 @@ qor3a/
 
 | الطبقة | التقنية | الغرض |
 |--------|---------|-------|
-| **Backend API** | Node.js + Express 4 | Modular Monolith — Auth (3 طرق), Orders, Payments |
-| **Auth** | JWT + bcrypt + google-auth-library + OTP | Hybrid: Phone/OTP, Email/Password, Google OAuth |
-| **AI Service** | Python + FastAPI + OpenCV/ONNX | التحقق من الصورة الشخصية (7 فحوصات) |
+| **Backend API** | Node.js + Express 4 | Modular Monolith — 8 موديولات |
+| **Auth** | JWT + bcrypt + google-auth-library | بريد إلكتروني/كلمة مرور + Google OAuth |
+| **AI Service** | Python + FastAPI + OpenCV (معلق) | التحقق من الصورة الشخصية |
 | **Headless** | Node.js + Puppeteer + Stealth | إدخال بيانات في الموقع الرسمي + CAPTCHA |
-| **Database** | PostgreSQL + Knex | 11 جدول، JSONB، UUID، RLS |
-| **Queue** | Bull + Redis | أولوية الطلبات + Retry + Dashboard |
+| **Database** | PostgreSQL + Knex | 11 جدول، JSONB، UUID |
+| **Queue** | Bull + Redis | طابور الطلبات + Retry |
 | **Storage** | MinIO (S3-compatible) | الصور الشخصية + إيصالات الدفع |
-| **Frontend** | React 19 + Vite + Tailwind 4 + Zustand | PWA، RTL، 3G |
-| **Container** | Docker + Docker Compose | 5 خدمات |
-| **Hosting** | VPS (Hetzner CX31 ~$12/mo) | 4 vCPU، 8GB RAM، 160GB SSD |
+| **Frontend** | React 19 + Vite + Tailwind 4 + Zustand | PWA، RTL، 43+ صفحة |
 
 ---
 
-## 🚦 البدء السريع
+## ⚡ البدء السريع (Quick Start)
 
 ### المتطلبات
 - Node.js 20+
-- PostgreSQL 16
-- Redis (لـ OTP و Bull queue)
+- PostgreSQL 16+
+- Redis
+- npm
 
-### التثبيت
+### التثبيت والتشغيل — سكربت واحد
 
 ```bash
 # 1. Clone
@@ -190,73 +76,185 @@ cd Qora
 # 2. إنشاء قاعدة البيانات
 createdb qor3a
 
-# 3. تشغيل الخدمات المساعدة
-cd infra && docker-compose up -d redis minio && cd ..
+# 3. تشغيل الخدمات المساعدة (Redis + MinIO)
+docker compose -f infra/docker-compose.yml up -d redis minio
 
-# 4. إعداد Backend
+# 4. تشغيل السكربت الموحد — ينصب الاعتماديات، يشغل الترحيلات، البذور، ويطلق الخوادم
+bash scripts/start.sh
+```
+
+### أو التشغيل اليدوي
+
+```bash
+# 1. إعداد البيئة
+cp .env.example .env   # عدّل المتغيرات (خاصة JWT_SECRET و CORS_ORIGIN)
+
+# 2. Backend
 cd backend/api
-cp .env.example ../../.env   # عدّل المتغيرات
+cp .env.example ../../.env
 npm install
-npx knex migrate:latest      # تشغيل 9 ملفات migration
-npx knex seed:run             # إنشاء المستخدمين الافتراضيين
-npm run dev                   # http://localhost:3000
+npx knex migrate:latest
+npx knex seed:run              # ينشئ المستخدمين + بيانات تجريبية
+npm run dev                    # http://localhost:3000
 
-# 5. إعداد Frontend (نافذة جديدة)
+# 3. Frontend (نافذة جديدة)
 cd frontend
 npm install
-npm run dev                   # http://localhost:5173
+npm run dev                    # http://localhost:5173
+```
+
+### 🐳 تشغيل Docker (كل الخدمات)
+
+```bash
+docker compose -f infra/docker-compose.yml up --build
 ```
 
 ### بيانات الدخول الافتراضية
 
 | الحساب | البريد | كلمة المرور | الدور |
 |--------|--------|-------------|-------|
-| مدير النظام | `admin@qor3a.ye` | `admin123` | Admin |
-| موظف | `employee@qor3a.ye` | `admin123` | Employee |
+| 🛡️ مدير النظام | `admin@qor3a.ye` | `admin123` | Admin |
+| 👨‍💼 موظف | `employee@qor3a.ye` | `admin123` | Employee |
+| 👤 عميل 1 | `ahmed@example.com` | `client123` | Client |
+| 👤 عميل 2 | `sara@example.com` | `client123` | Client |
+| 👤 عميل 3 | `khaled@example.com` | `client123` | Client |
+| 👤 عميل 4 | `noor@example.com` | `client123` | Client |
+| 👤 عميل 5 | `yasser@example.com` | `client123` | Client |
+
+### بيئة التشغيل
+
+| الخدمة | الرابط |
+|--------|--------|
+| 🌐 Frontend | http://localhost:5173 |
+| ⚙️ API | http://localhost:3000 |
+| 📖 Swagger Docs | http://localhost:3000/docs |
+| ❤️ Health Check | http://localhost:3000/health |
+| 🖥️ لوحة الإدارة | http://localhost:5173/dashboard/login |
+| 🔐 تسجيل الدخول | http://localhost:5173/login |
 
 ---
 
-## 📊 التكاليف والأسعار
+## 🏗️ هيكل المشروع
 
-| الخدمة | سعر قرعة | السوق (المكاتب) |
-|--------|----------|-----------------|
-| 🎯 تسجيل لوتري كامل | **1,000 YR** | 2,000 YR |
-| 📸 تصوير احترافي + AI | 500 YR | 1,000 YR |
-| 🔍 فحص النتيجة | 500 YR | — |
-
-**Break-Even**: 625 طلب/سنة (~$400) — يتحقق خلال الموسم الأول
+```
+qor3a/
+├── analysis/                 # 📚 تحليل شامل — 9 أقسام، 68 ملفاً
+│   ├── 01_Business_and_Vision/
+│   ├── 02_Requirements_Engineering/
+│   ├── 03_System_Architecture/
+│   ├── 04_Database_Design/
+│   ├── 05_API_and_Integrations/
+│   ├── 06_UI_UX_Design/
+│   ├── 07_DevOps_and_Deployment/
+│   ├── 08_Security_and_Risks/
+│   └── 09_Testing_and_QA/
+│
+├── backend/
+│   ├── api/                  # 🟢 Node.js + Express (Modular Monolith)
+│   │   ├── src/
+│   │   │   ├── common/       # Middleware: auth, error, logger, validator, fraud, ai, queue
+│   │   │   ├── database/     # 11 migrations + schema.sql + seeds (core + demo)
+│   │   │   ├── modules/      # 8 موديولات: auth, users, orders, payments, notifications, results, push-subscriptions, admin
+│   │   │   │   └── {module}/
+│   │   │   │       ├── {module}.routes.js
+│   │   │   │       ├── {module}.controller.js
+│   │   │   │       ├── {module}.service.js
+│   │   │   │       ├── {module}.model.js
+│   │   │   │       └── {module}.schema.js
+│   │   │   └── index.js
+│   │   └── tests/            # 185+ اختبار (Unit + Integration + Security)
+│   │
+│   ├── ai/                   # ⏳ Python + FastAPI (Photo Validation)
+│   └── headless/             # 🟢 Node.js + Puppeteer (Automation)
+│
+├── frontend/                 # 🟢 React + Vite + Tailwind + Zustand
+│   ├── src/
+│   │   ├── client/           # 16+ صفحة (Landing, Auth, Wizard, Dashboard)
+│   │   ├── dashboard/        # 26+ صفحة (Employee + Admin)
+│   │   └── common/           # Components, Hooks, Stores, Utils
+│   └── index.html
+│
+├── infra/                    # 🐳 Docker, Docker Compose
+├── docs/                     # 📖 OpenAPI 3.0.3 (27+ Endpoint)
+├── scripts/                  # 🔧 start.sh — سكربت التشغيل الموحد
+├── README.md
+├── AGENTS.md                 # تعليمات الذكاء الاصطناعي
+└── .env.example
+```
 
 ---
 
-## 📚 التحليل
+## 🔐 التوثيق (Authentication)
 
-مشروعنا يتبع إطار **First-Principles Engineering Analysis** — 9 مراحل، 68 ملفاً، 1.2MB:
+### 📧 1. البريد الإلكتروني + كلمة المرور
+- تسجيل وتسجيل دخول بالبريد الإلكتروني وكلمة مرور
+- bcrypt hash + JWT (24h access + 7d refresh)
+- تحديث تلقائي للتوكين عبر axios interceptor
 
-| # | القسم | الملفات | السؤال |
-|---|-------|---------|--------|
-| 01 | Business & Vision | 10 | لماذا نبني هذا؟ |
-| 02 | Requirements Engineering | 4 | ماذا نبني بالضبط؟ |
-| 03 | System Architecture | 5 | كيف نبنيها؟ |
-| 04 | Database Design | 3 | أين نخزن البيانات؟ |
-| 05 | API & Integrations | 5 | كيف نربط الخدمات؟ |
-| 06 | UI/UX Design | 12 | كيف سيتفاعل المستخدم؟ |
-| 07 | DevOps & Deployment | 16 | كيف نشغلها؟ |
-| 08 | Security & Risks | 7 | كيف نحميها؟ |
-| 09 | Testing & QA | 6 | كيف نضمن الجودة؟ |
+### 🌐 2. Google OAuth
+- Google Identity Services (GIS) popup
+- التحقق في الباكند عبر `google-auth-library`
+- يتطلب `GOOGLE_CLIENT_ID` في `.env`
+
+### 🔄 تحديث التوكين
+- httpOnly cookie على `/api/v1/auth/refresh`
+- axios interceptor: 401 → refresh → retry
+
+### API
+
+```bash
+# تسجيل
+curl -X POST http://localhost:3000/api/v1/auth/register-email \
+  -H 'Content-Type: application/json' \
+  -d '{"full_name":"محمد أحمد","email":"user@example.com","phone":"9677XXXXXXXX","password":"mypassword123"}'
+
+# تسجيل دخول
+curl -X POST http://localhost:3000/api/v1/auth/login-email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@qor3a.ye","password":"admin123"}'
+```
+
+---
+
+## 🧠 State Machine — 12 حالة
+
+```
+DRAFT → DATA_ENTRY_COMPLETE → PHOTO_PENDING → PHOTO_ACCEPTED / PHOTO_REJECTED
+     → PAYMENT_PENDING → PAYMENT_VERIFICATION → APPROVED / NEEDS_CORRECTION
+     → SUBMITTED → COMPLETED / CANCELLED
+```
+
+كل تغيير حالة يُسجل في `audit_logs` مع IP و User-Agent.
+
+---
+
+## 📊 لوحة التحكم (42+ صفحة)
+
+### صفحات العميل (16+)
+- الرئيسية، تسجيل الدخول، نسيان كلمة المرور، إعادة تعيين، التحقق من البريد
+- إنشاء طلب (Wizard 8 خطوات)، طلباتي، تفاصيل الطلب، نتيجة الطلب
+- الإشعارات، الإعدادات، متطلبات الصورة، الأسعار، من نحن، اتصل بنا، سياسة الخصوصية، الشروط
+
+### صفحات الموظف (9)
+- الرئيسية (إحصائيات)، الطلبات، مراجعة طلب، المدفوعات، تأكيد دفع
+- فحص النتائج، إرسال الطلبات، تأكيد الإرسال، الملف الشخصي
+
+### صفحات المدير (17)
+- كل صفحات الموظف + إدارة المستخدمين، سجل التدقيق
+- علامات الاحتيال، حالة الطابور، أداء الموظفين
+- المدفوعات (إشراف)، مراجعة طلب (قراءة فقط)، قائمة الموظفين
+- التقارير (نظرة عامة، إيرادات، موظفون)، الإعدادات (أسعار، حسابات، موسم، حدود، مفاتيح API)
+- النسخ الاحتياطي، سجلات السيرفر، الإشعارات الجماعية
 
 ---
 
 ## 🔐 الأمان
 
-- **JWT** — Access Token (24h) + Refresh Token (7 days, httpOnly)
-- **RBAC** — 3 أدوار (Client، Employee، Admin) مع Least Privilege
-- **تشفير** — AES-256-GCM للبيانات الحساسة، TLS 1.3، bcrypt لكلمات المرور
-- **Rate Limiting** — لكل endpoint حد منفصل:
-  - OTP Register: 3/hour | OTP Login: 5/min | OTP Verify: 10/min
-  - Email Register: 3/hour | Email Login: 10/min
-  - Google Auth: 5/min | Refresh: 10/hour
-  - Orders: 10/min/user | Status Change: 30/min/employee
-- **Audit Log** — كل تغيير حالة يُسجل مع IP و User-Agent
+- **JWT** — Access Token (24h) + Refresh Token (7d, httpOnly)
+- **RBAC** — 3 أدوار (Client, Employee, Admin)
+- **تشفير** — AES-256-GCM للبيانات الحساسة، bcrypt لكلمات المرور
+- **Rate Limiting** — لكل endpoint حد منفصل
+- **Audit Log** — كل تغيير حالة يُسجل مع IP
 - **Fraud Detection** — 8 قواعد آلية (IP متكرر، سرعة غير طبيعية، أنماط مشبوهة)
 
 ---
@@ -264,62 +262,69 @@ npm run dev                   # http://localhost:5173
 ## 🧪 الاختبارات
 
 ```
-133 tests, 12 suites — الكل ناجح ✅
+196+ tests, كلها ناجحة ✅
 ```
 
-| المستوى | العدد | التغطية |
-|---------|-------|---------|
-| Unit Tests | 9 ملفات | Service: 100% critical paths |
-| Integration | 3 ملفات | API endpoints مع SQLite |
-| Security | 14 سيناريو | JWT, SQL Injection, Role Escalation, IDOR, Rate Limit |
+| المستوى | التغطية |
+|---------|---------|
+| Unit Tests | Service: 100% critical paths |
+| Integration | API endpoints كاملة مع قاعدة بيانات |
+| Security | JWT, SQL Injection, Role Escalation, IDOR, Rate Limit |
+| Frontend | مكونات رئيسية |
+
+```bash
+# تشغيل اختبارات الباكند
+cd backend/api && npm test
+
+# تشغيل اختبارات الفرونت
+cd frontend && npm test
+```
 
 ---
 
 ## 📖 API Documentation
 
-- OpenAPI 3.0.3: `backend/api/docs/openapi.yaml` (27 endpoint, 31 schema, 54 error code)
-- Swagger UI: `http://localhost:3000/docs` (عند تشغيل الباكند)
+- OpenAPI 3.0.3: `backend/api/docs/openapi.yaml` (27+ endpoint, 31 schema)
+- Swagger UI: `http://localhost:3000/docs`
 - Base URL: `http://localhost:3000/api/v1`
 
-### المصادقة (Authentication)
-
-| Endpoint | الطريقة | الوصف |
-|----------|---------|-------|
-| `POST /auth/register` | OTP | تسجيل برقم الهاتف |
-| `POST /auth/login` | OTP | تسجيل دخول برقم الهاتف |
-| `POST /auth/verify-otp` | OTP | تأكيد رمز التحقق |
-| `POST /auth/register-email` | Email | تسجيل بالبريد + كلمة مرور |
-| `POST /auth/login-email` | Email | تسجيل دخول بالبريد + كلمة مرور |
-| `POST /auth/google` | Google | تسجيل دخول Google |
-| `POST /auth/refresh` | — | تحديث التوكين |
-| `POST /auth/logout` | — | تسجيل خروج |
-
-### الـ Endpoints الأخرى
+### أهم الـ Endpoints
 
 | Resource | الطرق | الوصف |
 |----------|-------|-------|
-| `/users` | GET, PATCH | الملف الشخصي |
-| `/orders` | GET, POST, PATCH | الطلبات (8 حالات) |
-| `/orders/:id/photo` | POST, DELETE | رفع/حذف الصورة |
-| `/payments` | GET, POST | الدفع + رفع الإشعار |
-| `/payments/:id/verify` | PATCH | تأكيد الدفع (موظف) |
-| `/notifications` | GET | الإشعارات |
-| `/admin/*` | GET, PATCH, POST | لوحة الإدارة |
-| `/admin/export/orders` | GET | تصدير CSV/Excel |
-| `/admin/bulk-notifications` | POST | إشعارات جماعية |
+| `/auth/*` | POST | تسجيل، دخول، Google، refresh، نسيان كلمة المرور |
+| `/users/profile` | GET, PATCH | الملف الشخصي |
+| `/orders/*` | GET, POST, PATCH | الطلبات (إنشاء، بيانات، صور، دفع) |
+| `/orders/:id/photo` | POST | رفع الصورة الشخصية + فحص AI |
+| `/orders/:id/passport-scan` | POST | رفع صورة الجواز |
+| `/orders/:id/payment/receipt` | POST | رفع إيصال الدفع |
+| `/orders/:id/check-result` | POST | طلب فحص النتيجة |
+| `/payments/methods` | GET | طرق الدفع المتاحة |
+| `/payments/receipts` | GET | قائمة المدفوعات (موظف/مدير) |
+| `/notifications/*` | GET, POST, PATCH | الإشعارات |
+| `/admin/*` | GET, POST, PATCH, DELETE | لوحة الإدارة الكاملة |
 
 ---
 
-## 🔮 خارطة الطريق (Product Roadmap)
+## 📱 PWA
 
-| المرحلة | المدة | المخرجات |
-|---------|-------|----------|
-| 🏗️ التحضير | شهر 1-2 | تحليل (68 ملف)، تصميم، قاعدة بيانات |
-| 🚀 الإطلاق | شهر 3 | Auth + Orders + Payments MVP (45+ ملف باكند، 60+ فرونت) |
-| 📈 النمو | شهر 4-6 | AI Photo + WhatsApp Notifications |
-| 🏆 القرعة | شهر 7-9 | Headless Browser + Queue |
-| 🔍 النتائج | شهر 10-11 | Result Checking + Notification |
-| 🌍 التوسع | شهر 12+ | خدمات جديدة (تأشيرات، ترجمة، جوازات) |
+التطبيق يدعم التثبيت على الشاشة الرئيسية (Add to Home Screen):
+- يعمل بدون إنترنت (offline caching)
+- إشعارات لحظية (Web Push)
+- أداء سريع (lazy loading, code splitting)
+
+---
+
+## 🔮 خارطة الطريق
+
+| المرحلة | الحالة | المخرجات |
+|---------|--------|----------|
+| 🏗️ التحليل والتخطيط | ✅ مكتمل | 68 ملف تحليل، OpenAPI، ERD، State Machine |
+| 🚀 MVP | ✅ مكتمل | Auth, Orders, Payments, Dashboard (196+ test) |
+| 📸 AI Photo | ⏳ معلق | Python + FastAPI + OpenCV |
+| 🤖 Headless | ✅ مكتمل | Puppeteer + 2Captcha + Queue |
+| 🔍 Result Check | ✅ مكتمل | فحص تلقائي للنتائج + إشعارات |
+| 🌍 التوسع | ⏳ مستقبلاً | خدمات جديدة (تأشيرات، ترجمة، جوازات) |
 
 ---
 
