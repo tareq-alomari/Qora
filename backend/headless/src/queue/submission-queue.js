@@ -1,4 +1,5 @@
 const Bull = require('bull');
+const fetch = require('node-fetch');
 const config = require('../config');
 const entrySubmitter = require('../scrapers/submit-entry');
 const logger = require('../utils/logger');
@@ -19,53 +20,38 @@ submissionQueue.process(config.queues.submissionConcurrency, async (job) => {
 
   try {
     const result = await entrySubmitter.submit(orderData);
-    await notifyApi(orderId, 'submit_official', {
+    await notifyApi(orderId, {
+      action: 'submit_official',
       confirmation_number: result.confirmation_number,
-      status: 'submitted',
     });
     logger.info(`Order ${orderId} submitted successfully. Confirmation: ${result.confirmation_number}`);
     return result;
   } catch (err) {
     logger.error(`Submission failed for order ${orderId}`, err);
     if (job.attemptsMade >= config.dvLottery.maxRetries - 1) {
-      await notifyApi(orderId, 'submission_failed', {
-        error: err.message,
-        status: 'needs_correction',
+      await notifyApi(orderId, {
+        action: 'request_correction',
+        notes: `فشل التقديم الرسمي: ${err.message}`,
       });
     }
     throw err;
   }
 });
 
-async function notifyApi(orderId, action, metadata) {
-  try {
-    const fetch = require('node-fetch');
-    const url = `${config.api.baseUrl}/orders/${orderId}/status`;
-    const { default: fetchModule } = await import('node-fetch');
-  } catch (e) {
-    const http = require('http');
-    const urlObj = new URL(`${config.api.baseUrl}/orders/${orderId}/status`);
-    const data = JSON.stringify({ action, ...metadata });
-    const options = {
-      hostname: urlObj.hostname,
-      port: urlObj.port,
-      path: urlObj.pathname,
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data),
-        'Authorization': `Bearer ${config.api.key}`,
-      },
-    };
-    return new Promise((resolve, reject) => {
-      const req = http.request(options, (res) => {
-        resolve(res.statusCode);
-      });
-      req.on('error', reject);
-      req.write(data);
-      req.end();
-    });
+async function notifyApi(orderId, body) {
+  const url = `${config.api.baseUrl}/orders/${orderId}/status`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': config.api.key,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    logger.error(`API notification failed: ${res.status} ${res.statusText}`, { orderId, body });
   }
+  return res.status;
 }
 
 submissionQueue.on('completed', (job, result) => {

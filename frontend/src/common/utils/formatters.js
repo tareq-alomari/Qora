@@ -80,11 +80,10 @@ export function getPaymentStatusColor(status) {
 
 export function getMethodLabel(method) {
   const labels = {
-    credit: 'بطاقة ائتمان',
-    bank: 'تحويل بنكي',
+    kuraimi: 'كريمي',
+    jeeb: 'جيب',
+    one_cash: 'ون كاش',
     mobile_money: 'موبايل موني',
-    cash: 'نقدي',
-    other: 'أخرى',
   }
   return labels[method] || method || '-'
 }

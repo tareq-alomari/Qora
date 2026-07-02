@@ -81,6 +81,11 @@ export default function LotteryWizard() {
   const [photoPolling, setPhotoPolling] = useState(false)
   const [showCamera, setShowCamera] = useState(true)
 
+  const [passportFile, setPassportFile] = useState(null)
+  const [passportPreview, setPassportPreview] = useState(null)
+  const [passportUploading, setPassportUploading] = useState(false)
+  const [passportScanDone, setPassportScanDone] = useState(false)
+
   const [paymentMethods, setPaymentMethods] = useState([])
   const [selectedMethod, setSelectedMethod] = useState('')
   const [selectedAccount, setSelectedAccount] = useState(null)
@@ -95,6 +100,7 @@ export default function LotteryWizard() {
   const pollRef = useRef(null)
   const fileInputRef = useRef(null)
   const receiptInputRef = useRef(null)
+  const passportInputRef = useRef(null)
 
   useEffect(() => {
     const init = async () => {
@@ -163,7 +169,9 @@ export default function LotteryWizard() {
       }
       const endpoint = endpoints[stepNum]
       if (endpoint) {
-        await api.patch(`/orders/${orderId}/${endpoint}`, data)
+        let payload = data
+        if (stepNum === 1) payload = { personal_data: data }
+        await api.patch(`/orders/${orderId}/${endpoint}`, payload)
       }
     } catch {
       toast.error('فشل حفظ البيانات')
@@ -250,6 +258,24 @@ export default function LotteryWizard() {
     pollRef.current = setInterval(check, 3000)
     return () => clearInterval(pollRef.current)
   }, [photoPolling, orderId])
+
+  const handlePassportScanUpload = async () => {
+    if (!passportFile || !orderId) return
+    setPassportUploading(true)
+    const formData = new FormData()
+    formData.append('passport_scan', passportFile)
+    try {
+      await api.post(`/orders/${orderId}/passport-scan`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success('تم رفع صورة الجواز')
+      setPassportScanDone(true)
+    } catch {
+      toast.error('فشل رفع صورة الجواز')
+    } finally {
+      setPassportUploading(false)
+    }
+  }
 
   useEffect(() => {
     if (orderId) {
@@ -652,6 +678,74 @@ export default function LotteryWizard() {
                 {photoStatus.confidence && (
                   <p className="text-sm text-gray-500 mt-1">نسبة الثقة: {Math.round(photoStatus.confidence * 100)}%</p>
                 )}
+              </div>
+            )}
+
+            {photoStatus && photoStatus.status === 'accepted' && !passportScanDone && (
+              <div className="border-t border-navy-100 pt-6 mt-6">
+                <h4 className="font-bold text-navy-900 mb-3">صورة جواز السفر</h4>
+                <p className="text-sm text-navy-500 mb-4">يرجى رفع صورة واضحة من جواز السفر ساري المفعول</p>
+
+                {!passportFile && (
+                  <div
+                    className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-primary-400 transition"
+                    onClick={() => passportInputRef.current?.click()}
+                  >
+                    <p className="text-gray-500">اختر صورة الجواز</p>
+                    <p className="text-xs text-gray-400 mt-1">JPEG - JPG</p>
+                    <input
+                      ref={passportInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files[0]
+                        if (file) {
+                          setPassportFile(file)
+                          setPassportPreview(URL.createObjectURL(file))
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {passportFile && !passportUploading && (
+                  <div className="space-y-3">
+                    {passportPreview && (
+                      <img src={passportPreview} alt="معاينة الجواز" className="max-h-48 mx-auto rounded-lg border" />
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setPassportFile(null)
+                          setPassportPreview(null)
+                        }}
+                        className="flex-1 border border-gray-300 text-gray-600 py-2.5 rounded-lg font-semibold hover:bg-gray-50 transition"
+                      >
+                        إعادة الاختيار
+                      </button>
+                      <button
+                        onClick={handlePassportScanUpload}
+                        className="flex-1 bg-primary-500 text-white py-2.5 rounded-lg font-semibold hover:bg-primary-600 transition"
+                      >
+                        رفع الصورة
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {passportUploading && (
+                  <div className="text-center text-primary-500 py-4">
+                    <div className="animate-spin inline-block w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full mb-2" />
+                    <p>جاري رفع صورة الجواز...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {passportScanDone && (
+              <div className="bg-green-50 border border-green-200 p-3 rounded-lg text-center">
+                <p className="text-success font-bold text-sm">✅ تم رفع صورة الجواز</p>
               </div>
             )}
 

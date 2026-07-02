@@ -29,22 +29,11 @@ export default function AuditLogPage() {
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
-      const params = { page, limit, sort: 'created_at', order: 'desc' }
+      const params = { page, limit }
       if (dateFrom) params.date_from = dateFrom
       if (dateTo) params.date_to = dateTo
-      const { data } = await api.get('/orders', { params })
-      // Flatten audit logs from orders or use a dedicated audit endpoint
-      // For now we use the audit_logs from the orders endpoint
-      const allLogs = []
-      if (data.data) {
-        for (const order of data.data) {
-          if (order.audit_log) {
-            allLogs.push(...order.audit_log.map(log => ({ ...log, order_id: order.id, order_number: order.order_number || order.id?.slice(0, 8) })))
-          }
-        }
-      }
-      allLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      setLogs(allLogs.slice(0, limit))
+      const { data } = await api.get('/admin/audit-logs', { params })
+      setLogs(data.data || [])
       setMeta(data.meta)
     } catch (err) {
       toast.error(err.response?.data?.error?.message || 'فشل تحميل سجل التدقيق')
@@ -115,7 +104,7 @@ export default function AuditLogPage() {
                     <td className="px-4 py-3 text-sm whitespace-nowrap">
                       {log.created_at ? new Date(log.created_at).toLocaleString('ar-SA') : '-'}
                     </td>
-                    <td className="px-4 py-3 text-sm">{log.user?.full_name || log.user_id || '-'}</td>
+                    <td className="px-4 py-3 text-sm">{log.user_name || log.user_id || '-'}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
                         {actionLabels[log.action] || log.action || 'تغيير حالة'}
@@ -135,7 +124,7 @@ export default function AuditLogPage() {
                       {log.order_number || log.order_id?.slice(0, 8) || '-'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
-                      {log.notes || '-'}
+                      {log.metadata?.notes || '-'}
                     </td>
                   </tr>
                 ))

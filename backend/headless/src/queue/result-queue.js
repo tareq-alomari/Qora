@@ -1,4 +1,5 @@
 const Bull = require('bull');
+const fetch = require('node-fetch');
 const config = require('../config');
 const resultChecker = require('../scrapers/check-results');
 const logger = require('../utils/logger');
@@ -45,7 +46,7 @@ resultQueue.process(config.queues.resultConcurrency, async (job) => {
       await updateOrderResult(order.id, result);
       results.push({ order_id: order.id, ...result });
 
-      await rateLimitDelay();
+      await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (err) {
       logger.error(`Result check failed for order ${order.id}`, err);
       results.push({ order_id: order.id, result: 'error', error: err.message });
@@ -55,64 +56,34 @@ resultQueue.process(config.queues.resultConcurrency, async (job) => {
   return { processed: orders.length, results };
 });
 
-async function updateOrderResult(orderId, result) {
-  try {
-    const fetch = require('node-fetch');
-  } catch (e) {
-    const http = require('http');
-    const urlObj = new URL(`${config.api.baseUrl}/orders/${orderId}/result`);
-    const data = JSON.stringify({
-      result: result.selected ? 'winner' : 'loser',
-      case_number: result.case_number || null,
-      checked_at: new Date().toISOString(),
-    });
-    const options = {
-      hostname: urlObj.hostname,
-      port: urlObj.port,
-      path: urlObj.pathname,
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data),
-        'Authorization': `Bearer ${config.api.key}`,
-      },
-    };
-    return new Promise((resolve, reject) => {
-      const req = http.request(options, (res) => resolve(res.statusCode));
-      req.on('error', reject);
-      req.write(data);
-      req.end();
-    });
+async function callApi(method, path, body) {
+  const url = `${config.api.baseUrl}${path}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': config.api.key,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    logger.error(`API call failed: ${res.status} ${path}`);
   }
+  return res.status;
+}
+
+async function updateOrderResult(orderId, result) {
+  return callApi('PATCH', `/orders/${orderId}/result`, {
+    result: result.selected ? 'winner' : 'loser',
+    case_number: result.case_number || null,
+    checked_at: new Date().toISOString(),
+  });
 }
 
 async function updateOrderConfirmation(orderId, confirmationNumber) {
-  try {
-    const http = require('http');
-    const urlObj = new URL(`${config.api.baseUrl}/orders/${orderId}/confirmation`);
-    const data = JSON.stringify({ confirmation_number: confirmationNumber });
-    const options = {
-      hostname: urlObj.hostname,
-      port: urlObj.port,
-      path: urlObj.pathname,
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(data),
-        'Authorization': `Bearer ${config.api.key}`,
-      },
-    };
-    new Promise((resolve, reject) => {
-      const req = http.request(options, (res) => resolve(res.statusCode));
-      req.on('error', reject);
-      req.write(data);
-      req.end();
-    });
-  } catch (e) {}
-}
-
-async function rateLimitDelay() {
-  return new Promise(resolve => setTimeout(resolve, 3000));
+  return callApi('PATCH', `/orders/${orderId}/confirmation`, {
+    confirmation_number: confirmationNumber,
+  });
 }
 
 resultQueue.on('completed', (job, result) => {

@@ -13,7 +13,7 @@ export default function CheckResult() {
     const fetchOrders = async () => {
       try {
         const { data } = await api.get('/orders', {
-          params: { status: 'submitted,completed', limit: 50 },
+          params: { limit: 50 },
         })
         setOrders(data.data || [])
       } catch {
@@ -30,7 +30,7 @@ export default function CheckResult() {
     if (!confirmationNumber.trim()) return
     setChecking(true)
     try {
-      const { data } = await api.get(`/check-result/${encodeURIComponent(confirmationNumber.trim())}`)
+      const { data } = await api.get(`/orders/check-result/${encodeURIComponent(confirmationNumber.trim())}`)
       setResult({ selected: data.data.result === 'winner', message: data.data.message })
     } catch {
       setResult({ selected: false, message: 'لم يتم العثور على النتيجة أو أن الرقم غير صحيح.' })

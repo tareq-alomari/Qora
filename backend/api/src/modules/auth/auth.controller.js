@@ -95,4 +95,102 @@ const logout = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyOtp, login, refresh, logout };
+const registerWithEmail = async (req, res, next) => {
+  try {
+    const { full_name, email, phone, password } = req.body;
+    const result = await authService.registerWithEmail(full_name, email, phone, password, req.ip);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(201).json({
+      data: {
+        user_id: result.userId,
+        access_token: result.accessToken,
+        expires_in: result.expiresIn,
+      },
+      message: 'تم إنشاء الحساب بنجاح',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const loginWithEmail = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.loginWithEmail(email, password);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(200).json({
+      data: {
+        user_id: result.userId,
+        access_token: result.accessToken,
+        expires_in: result.expiresIn,
+        user: result.user,
+      },
+      message: 'تم تسجيل الدخول بنجاح',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const googleAuth = async (req, res, next) => {
+  try {
+    const { id_token } = req.body;
+    const result = await authService.googleAuth(id_token);
+    setRefreshCookie(res, result.refreshToken);
+    res.status(200).json({
+      data: {
+        user_id: result.userId,
+        access_token: result.accessToken,
+        expires_in: result.expiresIn,
+        user: result.user,
+      },
+      message: 'تم تسجيل الدخول بواسطة Google',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const result = await authService.forgotPassword(req.body.email, req.body.phone);
+    res.status(200).json({
+      data: { phone: result.phone, otp_expires_in: result.otpExpiresIn },
+      message: 'تم إرسال رمز التحقق إلى هاتفك',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    await authService.resetPassword(req.body.phone, req.body.otp, req.body.password);
+    res.status(200).json({ message: 'تم إعادة تعيين كلمة المرور بنجاح' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const sendVerification = async (req, res, next) => {
+  try {
+    const result = await authService.sendVerification(req.body.email);
+    res.status(200).json({
+      data: result.verification_link ? { verification_link: result.verification_link } : undefined,
+      message: 'تم إرسال رابط التحقق إلى بريدك الإلكتروني',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const verifyEmail = async (req, res, next) => {
+  try {
+    await authService.verifyEmail(req.body.token);
+    res.status(200).json({ message: 'تم التحقق من البريد الإلكتروني بنجاح' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, registerWithEmail, loginWithEmail, googleAuth, verifyOtp, login, refresh, logout, forgotPassword, resetPassword, sendVerification, verifyEmail };

@@ -32,7 +32,7 @@ const getMethods = async () => {
 
 const listReceipts = async (query) => {
   const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 20;
+  const limit = Math.min(parseInt(query.limit) || 20, 100);
 
   const rows = await paymentModel.findReceipts({ status: query.status, page, limit });
   const totalResult = await paymentModel.countReceipts({ status: query.status });

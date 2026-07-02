@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>دخول لوحة التحكم - قرعة</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.card { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); width: 400px; max-width: 90%; }
+h1 { font-size: 24px; color: #1E3A5F; margin-bottom: 8px; text-align: center; }
+p { color: #64748b; margin-bottom: 28px; text-align: center; font-size: 14px; }
+.form-group { margin-bottom: 20px; }
+label { display: block; font-weight: 700; color: #1E3A5F; margin-bottom: 6px; font-size: 14px; }
+input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 15px; transition: border-color 0.2s; font-family: inherit; }
+input:focus { outline: none; border-color: #3B82F6; }
+button { width: 100%; padding: 14px; background: #3B82F6; color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.2s; margin-top: 8px; }
+button:hover { background: #2563EB; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+.error { color: #EF4444; font-size: 13px; margin-top: 12px; text-align: center; display: none; }
+.success { color: #10B981; font-size: 13px; margin-top: 12px; text-align: center; display: none; }
+.spinner { display: none; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: white; animation: spin 0.6s linear infinite; margin: 0 auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.accounts { margin-top: 24px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; line-height: 2; }
+.accounts strong { color: #64748b; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔐 دخول لوحة التحكم</h1>
+  <p>أدخل بيانات المدير للدخول إلى لوحة التحكم</p>
+  
+  <div class="form-group">
+    <label>البريد الإلكتروني</label>
+    <input type="email" id="email" value="admin@qor3a.ye" dir="ltr">
+  </div>
+  
+  <div class="form-group">
+    <label>كلمة المرور</label>
+    <input type="password" id="password" value="admin123" dir="ltr">
+  </div>
+
+  <button id="loginBtn" onclick="login()">
+    <span id="btnText">تسجيل الدخول</span>
+    <div class="spinner" id="spinner"></div>
+  </button>
+
+  <div class="error" id="error"></div>
+  <div class="success" id="success"></div>
+
+  <div class="accounts">
+    <strong>Admin:</strong> admin@qor3a.ye / admin123<br>
+    <strong>Employee:</strong> employee@qor3a.ye / admin123
+  </div>
+</div>
+
+<script>
+async function login() {
+  const btn = document.getElementById('loginBtn');
+  const btnText = document.getElementById('btnText');
+  const spinner = document.getElementById('spinner');
+  const error = document.getElementById('error');
+  const success = document.getElementById('success');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  error.style.display = 'none';
+  success.style.display = 'none';
+  btn.disabled = true;
+  btnText.style.display = 'none';
+  spinner.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/v1/auth/login-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error?.message || data.message || 'خطأ في البريد أو كلمة المرور');
+    }
+
+    localStorage.setItem('accessToken', data.data.access_token);
+    success.textContent = `✅ مرحباً ${data.data.user.full_name}! جاري التوجيه...`;
+    success.style.display = 'block';
+
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 500);
+  } catch (err) {
+    error.textContent = '❌ ' + err.message;
+    error.style.display = 'block';
+    btn.disabled = false;
+    btnText.style.display = 'inline';
+    spinner.style.display = 'none';
+  }
+}
+</script>
+</body>
+</html>

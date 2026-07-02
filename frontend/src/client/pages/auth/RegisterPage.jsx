@@ -1,17 +1,23 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '@common/stores/authStore'
 import OtpInput from '@common/components/OtpInput'
 import toast from 'react-hot-toast'
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+
 export default function RegisterPage() {
+  const [mode, setMode] = useState('otp')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [resendTimer, setResendTimer] = useState(0)
-  const { requestOtp, verifyOtp } = useAuthStore()
-  const navigate = useNavigate()
+  const { requestOtp, registerWithEmail, verifyOtp, googleAuth } = useAuthStore()
   const timerRef = useRef(null)
 
   useEffect(() => {
@@ -20,6 +26,29 @@ export default function RegisterPage() {
     }
     return () => clearTimeout(timerRef.current)
   }, [resendTimer])
+
+  useEffect(() => {
+    if (GOOGLE_CLIENT_ID && window.google?.accounts?.id) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+        cancel_on_tap_outside: false,
+      })
+    }
+  }, [])
+
+  const handleGoogleResponse = async (response) => {
+    setLoading(true)
+    try {
+      await googleAuth(response.credential)
+      toast.success('تم إنشاء الحساب بواسطة Google')
+      window.location.href = '/lottery'
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'فشل تسجيل الدخول بواسطة Google')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleRequestOtp = async (e) => {
     e.preventDefault()
@@ -35,8 +64,7 @@ export default function RegisterPage() {
       setStep(2)
       setResendTimer(60)
     } catch (err) {
-      const msg = err.response?.data?.error?.message || 'حدث خطأ، حاول مرة أخرى'
-      toast.error(msg)
+      toast.error(err.response?.data?.error?.message || 'حدث خطأ، حاول مرة أخرى')
     } finally {
       setLoading(false)
     }
@@ -52,9 +80,31 @@ export default function RegisterPage() {
     try {
       await verifyOtp(phone.replace(/\s/g, ''), otp)
       toast.success('تم إنشاء الحساب بنجاح')
-      navigate('/lottery')
+      window.location.href = '/lottery'
     } catch {
       toast.error('رمز التحقق غير صحيح')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleEmailRegister = async (e) => {
+    e.preventDefault()
+    if (password !== passwordConfirm) {
+      toast.error('كلمة المرور غير متطابقة')
+      return
+    }
+    if (password.length < 8) {
+      toast.error('كلمة المرور يجب أن تكون 8 أحرف على الأقل')
+      return
+    }
+    setLoading(true)
+    try {
+      await registerWithEmail(fullName, email, phone.replace(/\s/g, ''), password)
+      toast.success('تم إنشاء الحساب بنجاح')
+      window.location.href = '/lottery'
+    } catch (err) {
+      toast.error(err.response?.data?.error?.message || 'حدث خطأ، حاول مرة أخرى')
     } finally {
       setLoading(false)
     }
@@ -71,14 +121,19 @@ export default function RegisterPage() {
     }
   }
 
+  const tabs = [
+    { id: 'otp', label: 'رقم الهاتف' },
+    { id: 'email', label: 'البريد الإلكتروني' },
+    { id: 'google', label: 'Google' },
+  ]
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-navy-50 font-sans" dir="rtl">
-      {/* Visual Section - Left Side */}
+      {/* Visual Section */}
       <div className="hidden md:flex md:w-1/2 bg-primary-900 relative overflow-hidden flex-col justify-center p-12 lg:p-24 order-2 md:order-1">
         <div className="absolute inset-0 bg-gradient-to-tl from-navy-900 via-primary-900 to-primary-800 opacity-90 z-0"></div>
         <div className="absolute top-1/4 -right-20 w-96 h-96 bg-gold-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
         <div className="absolute -bottom-20 left-10 w-96 h-96 bg-primary-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        
         <div className="relative z-10 text-white">
           <Link to="/" className="inline-flex items-center gap-3 mb-16 group">
             <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 group-hover:bg-white/20 transition-all duration-300">
@@ -88,23 +143,19 @@ export default function RegisterPage() {
             </div>
             <span className="text-3xl font-bold tracking-tight">قرعة</span>
           </Link>
-          
           <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6">
             ابدأ رحلتك نحو <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-300 to-gold-500">
-              فرصة جديدة
-            </span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-gold-300 to-gold-500">فرصة جديدة</span>
           </h1>
           <p className="text-primary-100 text-lg max-w-md leading-relaxed">
             أنشئ حسابك الآن وابدأ في خطوات التسجيل. نوفر لك نظام فحص آلي للصور لتجنب رفض طلبك.
           </p>
-          
           <div className="mt-16 space-y-6">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
                 <svg className="w-5 h-5 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <span className="font-medium">تسجيل سريع وآمن برقم الهاتف</span>
+              <span className="font-medium">تسجيل سريع وآمن</span>
             </div>
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
@@ -122,7 +173,7 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Form Section - Right Side */}
+      {/* Form Section */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white relative order-1 md:order-2">
         <div className="absolute top-6 right-6 md:hidden">
           <Link to="/" className="flex items-center gap-2">
@@ -136,96 +187,156 @@ export default function RegisterPage() {
         </div>
 
         <div className="w-full max-w-md">
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-navy-900 mb-3">إنشاء حساب جديد</h2>
-            <p className="text-navy-500">أدخل رقم هاتفك للبدء بالتسجيل</p>
+            <p className="text-navy-500">اختر طريقة التسجيل</p>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex bg-navy-50 rounded-xl p-1 mb-8">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setMode(t.id); setStep(1) }}
+                className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${
+                  mode === t.id ? 'bg-white text-primary-600 shadow-sm' : 'text-navy-500 hover:text-navy-700'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
 
           <div className="bg-white rounded-3xl shadow-xl shadow-navy-100/50 border border-navy-100 p-8 sm:p-10">
-            {step === 1 ? (
-              <form onSubmit={handleRequestOtp} className="space-y-6">
+            {mode === 'otp' && (
+              <>
+                {step === 1 ? (
+                  <form onSubmit={handleRequestOtp} className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-navy-900">رقم الهاتف</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                          <svg className="w-5 h-5 text-navy-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </div>
+                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                          placeholder="967 XXXXXXXX"
+                          className="w-full pl-12 pr-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all rtl text-left font-medium"
+                          dir="ltr" required
+                        />
+                      </div>
+                      <p className="text-xs text-navy-400 flex items-center gap-1.5 mt-2">
+                        <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        الصيغة: 967 متبوعاً بـ 9 أرقام
+                      </p>
+                    </div>
+                    <button type="submit" disabled={loading}
+                      className="w-full bg-primary-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/30 flex justify-center items-center gap-2"
+                    >
+                      {loading ? (
+                        <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>جاري الإرسال...</>
+                      ) : 'إنشاء حساب جديد'}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleVerifyOtp} className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-bold text-navy-900">رمز التحقق (OTP)</label>
+                        <button type="button" onClick={() => setStep(1)} className="text-xs text-primary-500 font-semibold hover:text-primary-700">تعديل الرقم؟</button>
+                      </div>
+                      <div className="flex justify-center" dir="ltr">
+                        <OtpInput length={6} value={otp} onChange={setOtp} disabled={loading} />
+                      </div>
+                      <p className="text-xs text-navy-400 text-center mt-3">أدخل الرمز المكون من 6 أرقام المرسل إلى هاتفك</p>
+                    </div>
+                    <button type="submit" disabled={loading || otp.length !== 6}
+                      className="w-full bg-primary-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/30"
+                    >
+                      {loading ? 'جاري التحقق...' : 'تأكيد التسجيل'}
+                    </button>
+                    <div className="text-center pt-2">
+                      <button type="button" onClick={handleResend} disabled={resendTimer > 0}
+                        className="text-sm font-medium text-navy-500 hover:text-primary-600 transition-colors disabled:text-navy-300"
+                      >
+                        {resendTimer > 0 ? `إعادة الإرسال متاحة بعد ${resendTimer} ثانية` : 'لم يصلك الرمز؟ أعد الإرسال'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+
+            {mode === 'email' && (
+              <form onSubmit={handleEmailRegister} className="space-y-5">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-navy-900">الاسم الكامل</label>
+                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    placeholder="محمد أحمد" required
+                    className="w-full px-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all font-medium"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-navy-900">البريد الإلكتروني</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="your@email.com" dir="ltr" required
+                    className="w-full px-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all text-left font-medium"
+                  />
+                </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-navy-900">رقم الهاتف</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                      <svg className="w-5 h-5 text-navy-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </div>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="967 XXXXXXXX"
-                      className="w-full pl-12 pr-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all rtl text-left font-medium"
-                      dir="ltr"
-                      required
-                    />
-                  </div>
-                  <p className="text-xs text-navy-400 flex items-center gap-1.5 mt-2">
-                    <svg className="w-4 h-4 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    الصيغة: 967 متبوعاً بـ 9 أرقام
-                  </p>
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                    placeholder="967 XXXXXXXX" dir="ltr" required
+                    className="w-full px-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all text-left font-medium"
+                  />
+                  <p className="text-xs text-navy-400">الصيغة: 967 متبوعاً بـ 9 أرقام</p>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/30 flex justify-center items-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      جاري الإرسال...
-                    </>
-                  ) : 'إنشاء حساب جديد'}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-sm font-bold text-navy-900">رمز التحقق (OTP)</label>
-                    <button
-                      type="button"
-                      onClick={() => setStep(1)}
-                      className="text-xs text-primary-500 font-semibold hover:text-primary-700"
-                    >
-                      تعديل الرقم؟
-                    </button>
-                  </div>
-                  <div className="flex justify-center" dir="ltr">
-                    <OtpInput length={6} value={otp} onChange={setOtp} disabled={loading} />
-                  </div>
-                  <p className="text-xs text-navy-400 text-center mt-3">أدخل الرمز المكون من 6 أرقام المرسل إلى هاتفك</p>
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-navy-900">كلمة المرور</label>
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="•••••••• (8 أحرف على الأقل)" dir="ltr" required
+                    className="w-full px-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all text-left font-medium"
+                  />
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || otp.length !== 6}
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-navy-900">تأكيد كلمة المرور</label>
+                  <input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)}
+                    placeholder="••••••••" dir="ltr" required
+                    className="w-full px-4 py-3.5 bg-navy-50/50 border border-navy-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-all text-left font-medium"
+                  />
+                </div>
+                <button type="submit" disabled={loading}
                   className="w-full bg-primary-500 text-white py-4 rounded-xl font-bold text-lg hover:bg-primary-600 focus:ring-4 focus:ring-primary-500/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-primary-500/30"
                 >
-                  {loading ? 'جاري التحقق...' : 'تأكيد التسجيل'}
+                  {loading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب جديد'}
                 </button>
-
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={resendTimer > 0}
-                    className="text-sm font-medium text-navy-500 hover:text-primary-600 transition-colors disabled:text-navy-300 disabled:hover:text-navy-300"
-                  >
-                    {resendTimer > 0 ? `إعادة الإرسال متاحة بعد ${resendTimer} ثانية` : 'لم يصلك الرمز؟ أعد الإرسال'}
-                  </button>
-                </div>
               </form>
             )}
+
+            {mode === 'google' && (
+              <div className="space-y-6 text-center">
+                <p className="text-navy-500 text-sm">أنشئ حسابك باستخدام حساب Google الخاص بك</p>
+                <button onClick={() => {
+                  if (!GOOGLE_CLIENT_ID) {
+                    toast.error('تسجيل الدخول بواسطة Google غير متاح حالياً')
+                    return
+                  }
+                  window.google?.accounts?.id?.prompt()
+                }} disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 bg-white border-2 border-navy-200 text-navy-900 py-4 rounded-xl font-bold text-lg hover:bg-navy-50 focus:ring-4 focus:ring-navy-200 transition-all disabled:opacity-70"
+                >
+                  <svg className="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0124 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 01-4.087 5.571l6.19 5.238A20.004 20.004 0 0044 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                  {loading ? 'جاري إنشاء الحساب...' : 'التسجيل بواسطة Google'}
+                </button>
+                {!GOOGLE_CLIENT_ID && (
+                  <p className="text-xs text-navy-400">التسجيل بواسطة Google غير متاح حالياً (قريباً)</p>
+                )}
+              </div>
+            )}
           </div>
-          
-          {step === 1 && (
+
+          {mode !== 'google' && (
             <p className="text-center text-navy-500 mt-8 font-medium">
               لديك حساب بالفعل؟{' '}
               <Link to="/login" className="text-primary-600 hover:text-primary-500 font-bold transition-colors">

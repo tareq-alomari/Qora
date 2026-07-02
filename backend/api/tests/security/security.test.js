@@ -502,7 +502,7 @@ describe('SEC-20 to SEC-24: JWT Security', () => {
     expect(res.body.error.code).toBe('INVALID_TOKEN');
   });
 
-  test('SEC-22: تغيير sub (user_id) => 403', async () => {
+  test('SEC-22: تغيير sub (user_id) => 401', async () => {
     await db('users').insert({ id: 'sec22a', phone: '967700000222', role: 'client' });
     await db('orders').insert({ id: 'order-sec22', user_id: 'sec22a', status: 'draft', total_price: 1000, order_number: 'QR-2026-0022' });
 
@@ -510,7 +510,8 @@ describe('SEC-20 to SEC-24: JWT Security', () => {
     const res = await request(app)
       .get('/api/v1/orders/order-sec22')
       .set('Authorization', `Bearer ${tamperedToken}`);
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('USER_NOT_FOUND');
   });
 
   test('SEC-23: Token في URL => ممنوع (only header supported)', async () => {

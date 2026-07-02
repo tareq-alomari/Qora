@@ -125,6 +125,10 @@ const countUsers = ({ role, search }) => {
     .first();
 };
 
+const createUser = (data) => {
+  return db('users').insert(data).returning(['id', 'full_name', 'phone', 'email', 'role', 'is_active']);
+};
+
 const findFraudFlags = async ({ level, limit, offset }) => {
   const query = db('orders')
     .leftJoin('users', 'orders.user_id', 'users.id')
@@ -266,4 +270,49 @@ const exportOrders = ({ status, date_from, date_to }) => {
   return query;
 };
 
-module.exports = { getStats, findUsers, countUsers, updateUser, getSettings, updateSettings, findFraudFlags, countFraudFlags, findUsersByFilter, exportOrders };
+const findUserById = async (id) => {
+  const user = await db('users')
+    .select('id', 'phone', 'email', 'full_name', 'role', 'is_active', 'is_email_verified', 'created_at', 'last_login_at')
+    .where({ id })
+    .first();
+
+  if (!user) return null;
+
+  const { count } = await db('orders').where({ user_id: id }).count('id as count').first();
+  const activeOrder = await db('orders').where({ user_id: id, is_active: true }).whereNotIn('status', ['cancelled', 'completed']).select('id', 'status', 'order_number').first();
+
+  return { ...user, orders_count: parseInt(count) || 0, active_order: activeOrder || null };
+};
+
+const findUserByPhone = (phone) => {
+  return db('users').where({ phone }).first();
+};
+
+const findAuditLogs = ({ limit, offset, date_from, date_to }) => {
+  const query = db('audit_logs')
+    .leftJoin('users', 'audit_logs.user_id', 'users.id')
+    .select(
+      'audit_logs.*',
+      'users.full_name as user_name',
+      'users.email as user_email',
+    )
+    .orderBy('audit_logs.created_at', 'desc')
+    .limit(limit)
+    .offset(offset);
+
+  if (date_from) query.where('audit_logs.created_at', '>=', date_from);
+  if (date_to) query.where('audit_logs.created_at', '<=', date_to);
+
+  return query;
+};
+
+const countAuditLogs = ({ date_from, date_to }) => {
+  const query = db('audit_logs');
+
+  if (date_from) query.where('created_at', '>=', date_from);
+  if (date_to) query.where('created_at', '<=', date_to);
+
+  return query.count('id as total').first();
+};
+
+module.exports = { getStats, findUsers, countUsers, updateUser, createUser, getSettings, updateSettings, findFraudFlags, countFraudFlags, findUsersByFilter, exportOrders, findUserById, findUserByPhone, findAuditLogs, countAuditLogs };

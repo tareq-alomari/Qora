@@ -39,10 +39,15 @@ const statusLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMIT', message: 'Too many status changes', details: [] } },
 });
 
-router.post('/', authenticate, orderLimiter, validate(createOrderSchema), controller.create);
+router.post('/', authenticate, orderLimiter, controller.create);
 router.get('/', authenticate, controller.list);
 router.get('/:id', authenticate, controller.getById);
 router.patch('/:id/personal-data', authenticate, validate(updatePersonalDataSchema), controller.updatePersonalData);
+router.patch('/:id/contact-info', authenticate, controller.updateContactInfo);
+router.patch('/:id/education-status', authenticate, controller.updateEducationStatus);
+router.patch('/:id/spouse', authenticate, controller.updateSpouseData);
+router.patch('/:id/children', authenticate, controller.updateChildrenData);
+router.post('/:id/submit', authenticate, controller.submitOrder);
 router.post('/:id/photo', authenticate, photoLimiter, uploadPhoto.single('photo'), controller.uploadPhoto);
 router.get('/:id/photo/status', authenticate, controller.getPhotoStatus);
 router.post('/:id/passport-scan', authenticate, passportLimiter, uploadPassport.single('passport_scan'), controller.uploadPassportScan);

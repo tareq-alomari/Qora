@@ -2,7 +2,7 @@ const notifModel = require('./notifications.model');
 
 const list = async (userId, query) => {
   const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 20;
+  const limit = Math.min(parseInt(query.limit) || 20, 100);
 
   const rows = await notifModel.findByUser(userId, { page, limit });
   const totalResult = await notifModel.countByUser(userId);
@@ -37,4 +37,8 @@ const unreadCount = async (userId) => {
   return parseInt(result.total) || 0;
 };
 
-module.exports = { list, create, markAsRead, unreadCount };
+const markAllAsRead = async (userId) => {
+  return notifModel.markAllAsRead(userId);
+};
+
+module.exports = { list, create, markAsRead, markAllAsRead, unreadCount };

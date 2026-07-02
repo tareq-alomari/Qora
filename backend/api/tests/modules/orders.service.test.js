@@ -8,7 +8,18 @@ const storage = require('../../src/common/storage');
 jest.mock('../../src/modules/orders/orders.model');
 jest.mock('../../src/common/storage');
 
-const mockDb = {
+const mockDb = {};
+
+jest.mock('../../src/database/db', () => {
+  const fn = jest.fn(() => mockDb);
+  fn.fn = { now: jest.fn().mockReturnValue('2026-07-01T00:00:00Z') };
+  fn.raw = jest.fn().mockReturnValue('NOW()');
+  return fn;
+});
+
+const db = require('../../src/database/db');
+
+const buildMockDb = () => ({
   insert: jest.fn().mockReturnThis(),
   where: jest.fn().mockReturnThis(),
   whereNotNull: jest.fn().mockReturnThis(),
@@ -17,13 +28,9 @@ const mockDb = {
   first: jest.fn().mockResolvedValue(null),
   orderBy: jest.fn().mockReturnThis(),
   returning: jest.fn().mockResolvedValue([]),
-};
-
-jest.mock('../../src/database/db', () => {
-  return jest.fn(() => mockDb);
+  raw: jest.fn().mockReturnValue('NOW()'),
+  count: jest.fn().mockReturnThis(),
 });
-
-const db = require('../../src/database/db');
 
 describe('Orders Service', () => {
   const mockOrder = {
@@ -37,13 +44,20 @@ describe('Orders Service', () => {
     updated_at: new Date(),
   };
 
+  const mockPayment = {
+    id: 'payment-uuid',
+    order_id: 'order-uuid',
+    status: 'verified',
+    amount: 1000,
+    currency: 'YER',
+    method: 'deposit',
+    provider: 'kuraimi',
+    receipt_image_path: '/receipts/order-uuid/receipt.jpg',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    Object.values(mockDb).forEach(m => {
-      if (jest.isMockFunction(m)) m.mockReturnThis();
-    });
-    mockDb.first.mockResolvedValue(null);
-    mockDb.returning.mockResolvedValue([]);
+    Object.assign(mockDb, buildMockDb());
     storage.save.mockResolvedValue();
     storage.getUrl.mockReturnValue('/uploads/test.jpg');
   });
@@ -104,6 +118,7 @@ describe('Orders Service', () => {
         .mockResolvedValueOnce({ ...mockOrder, status: 'payment_verification' })
         .mockResolvedValueOnce(approvedOrder);
       orderModel.update.mockResolvedValue([approvedOrder]);
+      mockDb.first.mockResolvedValue(mockPayment);
 
       const result = await orderService.changeStatus(
         'order-uuid', 'employee-uuid', 'employee',
@@ -119,6 +134,43 @@ describe('Orders Service', () => {
       await expect(orderService.changeStatus(
         'order-uuid', 'employee-uuid', 'employee',
         { action: 'approve' }
+      )).rejects.toThrow(AppError);
+    });
+
+    test('approves order with verify_payment action and updates payment status', async () => {
+      const verifiedOrder = { ...mockOrder, status: 'payment_verification' };
+      orderModel.findById
+        .mockResolvedValueOnce({ ...mockOrder, status: 'payment_pending' })
+        .mockResolvedValueOnce(verifiedOrder);
+      orderModel.update.mockResolvedValue([verifiedOrder]);
+      mockDb.first.mockResolvedValue({ ...mockPayment, status: 'pending' });
+
+      const result = await orderService.changeStatus(
+        'order-uuid', 'employee-uuid', 'employee',
+        { action: 'verify_payment' }
+      );
+
+      expect(result.order.status).toBe('payment_verification');
+      expect(mockDb.update).toHaveBeenCalledWith({ status: 'verified', verified_at: expect.anything(), verified_by: 'employee-uuid' });
+    });
+
+    test('rejects approve when payment is not verified', async () => {
+      orderModel.findById.mockResolvedValue({ ...mockOrder, status: 'payment_verification' });
+      mockDb.first.mockResolvedValue({ ...mockPayment, status: 'pending' });
+
+      await expect(orderService.changeStatus(
+        'order-uuid', 'employee-uuid', 'employee',
+        { action: 'approve' }
+      )).rejects.toThrow(AppError);
+    });
+
+    test('rejects submit_official when confirmation_number is missing', async () => {
+      orderModel.findById.mockResolvedValue({ ...mockOrder, status: 'approved' });
+      mockDb.first.mockResolvedValue(null);
+
+      await expect(orderService.changeStatus(
+        'order-uuid', 'employee-uuid', 'employee',
+        { action: 'submit_official' }
       )).rejects.toThrow(AppError);
     });
   });

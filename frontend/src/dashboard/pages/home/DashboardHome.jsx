@@ -10,7 +10,7 @@ const STATUS_LABELS = {
   completed: 'مكتمل', cancelled: 'ملغي',
 }
 
-const METHOD_LABELS = { credit: 'بطاقة ائتمان', bank: 'تحويل بنكي', cash: 'نقدي', mobile_money: 'موبايل موني', other: 'أخرى' }
+const METHOD_LABELS = { kuraimi: 'كريمي', jeeb: 'جيب', one_cash: 'ون كاش', mobile_money: 'موبايل موني' }
 
 function numberFormat(n) {
   return new Intl.NumberFormat('ar-SA').format(n || 0)
@@ -76,25 +76,25 @@ export default function DashboardHome() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           label="إجمالي الطلبات" 
-          value={numberFormat(stats?.total)} 
+          value={numberFormat(stats?.totalOrders)} 
           color="primary"
           icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />}
         />
         <StatCard 
           label="طلبات اليوم" 
-          value={numberFormat(stats?.today)} 
+          value={numberFormat(stats?.ordersToday)} 
           color="emerald"
           icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />}
         />
         <StatCard 
           label="طلبات هذا الأسبوع" 
-          value={numberFormat(stats?.this_week)} 
+          value={numberFormat(stats?.ordersThisWeek)} 
           color="gold"
           icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
         />
         <StatCard 
           label="طلبات هذا الشهر" 
-          value={numberFormat(stats?.this_month)} 
+          value={numberFormat(stats?.ordersThisMonth)} 
           color="purple"
           icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />}
         />
@@ -102,9 +102,9 @@ export default function DashboardHome() {
 
       {/* Revenue Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <RevenueCard label="إجمالي الإيرادات" value={currencyFormat(stats?.revenue_total)} subtitle="منذ بداية النظام" />
-        <RevenueCard label="إيرادات اليوم" value={currencyFormat(stats?.revenue_today)} subtitle="آخر 24 ساعة" featured />
-        <RevenueCard label="إيرادات الأسبوع" value={currencyFormat(stats?.revenue_this_week)} subtitle="آخر 7 أيام" />
+        <RevenueCard label="إجمالي الإيرادات" value={currencyFormat(stats?.revenueTotal)} subtitle="منذ بداية النظام" />
+        <RevenueCard label="إيرادات اليوم" value={currencyFormat(stats?.revenueToday)} subtitle="آخر 24 ساعة" featured />
+        <RevenueCard label="إيرادات الأسبوع" value={currencyFormat(stats?.revenueThisWeek)} subtitle="آخر 7 أيام" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
