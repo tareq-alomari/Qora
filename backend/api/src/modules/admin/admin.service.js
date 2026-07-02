@@ -136,7 +136,7 @@ const enqueueResultCheck = async () => {
       'orders.id',
       'applicant_data.confirmation_number',
       'applicant_data.last_name',
-      db.raw("EXTRACT(YEAR FROM applicant_data.birth_date) as birth_year"),
+      db.raw('EXTRACT(YEAR FROM applicant_data.birth_date) as birth_year'),
     );
 
   if (orders.length === 0) throw new AppError('لا يوجد طلبات لفحص النتائج', 404, 'NO_ORDERS');

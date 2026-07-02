@@ -44,7 +44,7 @@ import AdminPayments from './dashboard/pages/admin-payments/AdminPayments'
 import AdminOrderReview from './dashboard/pages/admin-order-review/AdminOrderReview'
 import EmployeesList from './dashboard/pages/employees-list/EmployeesList'
 import BackupsPage from './dashboard/pages/backups/BackupsPage'
-import ServerLogs from './dashboard/pages/logs/ServerLogs'
+import ServerLogs from './dashboard/pages/server-logs/ServerLogs'
 
 // Admin Pages
 import AdminOrdersList from './dashboard/pages/admin-orders/AdminOrdersList'
