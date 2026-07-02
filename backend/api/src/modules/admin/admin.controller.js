@@ -72,4 +72,58 @@ const exportOrders = async (req, res, next) => {
   }
 };
 
-module.exports = { getStats, listUsers, updateUser, getSettings, updateSettings, getFraudFlags, sendBulkNotification, exportOrders };
+const enqueueSubmission = async (req, res, next) => {
+  try {
+    const result = await adminService.enqueueSubmission();
+    res.json({ data: result, message: `تمت إضافة ${result.enqueued} طلب إلى قائمة التقديم` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const enqueueResultCheck = async (req, res, next) => {
+  try {
+    const result = await adminService.enqueueResultCheck();
+    res.json({ data: result, message: `تمت إضافة ${result.enqueued} طلب إلى قائمة فحص النتائج` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const createUser = async (req, res, next) => {
+  try {
+    const user = await adminService.createUser(req.body);
+    res.status(201).json({ data: user, message: 'تم إنشاء المستخدم' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listAuditLogs = async (req, res, next) => {
+  try {
+    const result = await adminService.listAuditLogs(req.query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getQueueStatus = async (req, res, next) => {
+  try {
+    const status = await adminService.getQueueStatus();
+    res.json({ data: status });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getUserById = async (req, res, next) => {
+  try {
+    const user = await adminService.getUserById(req.params.id);
+    res.json({ data: user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getStats, listUsers, updateUser, createUser, getUserById, getSettings, updateSettings, getFraudFlags, sendBulkNotification, exportOrders, enqueueSubmission, enqueueResultCheck, getQueueStatus, listAuditLogs };

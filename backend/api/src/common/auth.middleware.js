@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
+const db = require('../database/db');
 const { AppError } = require('./error-handler');
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     return next(new AppError('Unauthorized', 401, 'UNAUTHORIZED'));
@@ -11,11 +12,16 @@ const authenticate = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = {
-      id: decoded.id,
-      role: decoded.role,
-      phone: decoded.phone,
-    };
+
+    const user = await db('users').where({ id: decoded.id }).select('id', 'role', 'phone', 'is_active').first();
+    if (!user) {
+      return next(new AppError('User not found', 401, 'USER_NOT_FOUND'));
+    }
+    if (user.is_active === false) {
+      return next(new AppError('Account is disabled', 403, 'ACCOUNT_DISABLED'));
+    }
+
+    req.user = { id: user.id, role: user.role, phone: user.phone };
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

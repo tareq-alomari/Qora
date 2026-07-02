@@ -68,11 +68,10 @@ export const PAYMENT_STATUS_COLORS = {
 }
 
 export const METHOD_LABELS = {
-  credit: 'بطاقة ائتمان',
-  bank: 'تحويل بنكي',
+  kuraimi: 'كريمي',
+  jeeb: 'جيب',
+  one_cash: 'ون كاش',
   mobile_money: 'موبايل موني',
-  cash: 'نقدي',
-  other: 'أخرى',
 }
 
 export const ROLE_LABELS = {

@@ -4,11 +4,10 @@ import api from '@/common/services/api'
 import toast from 'react-hot-toast'
 
 const METHOD_LABELS = {
-  credit: 'بطاقة ائتمان',
-  bank: 'تحويل بنكي',
+  kuraimi: 'كريمي',
+  jeeb: 'جيب',
+  one_cash: 'ون كاش',
   mobile_money: 'موبايل موني',
-  cash: 'نقدي',
-  other: 'أخرى',
 }
 
 export default function PaymentVerify() {
@@ -34,12 +33,12 @@ export default function PaymentVerify() {
   const handleVerify = async () => {
     setActionLoading(true)
     try {
+      // payment_verification -> approved
       await api.patch(`/orders/${payment.order_id}/status`, {
-        action: 'verify_payment',
-        receipt_id: id,
-        notes: 'تم تأكيد الدفع',
+        action: 'approve', // Matches State Machine: approved status
+        notes: 'تم تأكيد الدفع بنجاح واعتماد الطلب',
       })
-      toast.success('تم تأكيد الدفع بنجاح')
+      toast.success('تم تأكيد الدفع واعتماد الطلب بنجاح')
       navigate('/dashboard/payments')
     } catch (err) {
       toast.error(err.response?.data?.error?.message || 'فشل تأكيد الدفع')
@@ -55,12 +54,12 @@ export default function PaymentVerify() {
     }
     setActionLoading(true)
     try {
+      // payment_verification -> needs_correction
       await api.patch(`/orders/${payment.order_id}/status`, {
-        action: 'reject_payment',
-        receipt_id: id,
-        notes: rejectReason,
+        action: 'request_correction', // Matches State Machine
+        notes: `مرفوض بسبب: ${rejectReason}`,
       })
-      toast.success('تم رفض الدفع')
+      toast.success('تم رفض الدفع وطلب التعديل من العميل')
       navigate('/dashboard/payments')
     } catch (err) {
       toast.error(err.response?.data?.error?.message || 'فشل رفض الدفع')
@@ -142,8 +141,7 @@ export default function PaymentVerify() {
                 <span className="text-4xl font-black text-success direction-ltr tracking-tighter">${payment.amount}</span>
               </div>
               
-              <InfoRow label="طريقة الدفع" value={METHOD_LABELS[payment.method] || payment.method} />
-              <InfoRow label="المزود / البنك" value={payment.provider || '-'} />
+              <InfoRow label="طريقة الدفع" value={METHOD_LABELS[payment.provider] || payment.provider} />
               <InfoRow label="رقم الحوالة / المعرف" value={payment.transfer_number || '-'} isMono />
               <InfoRow label="تاريخ التحويل" value={payment.created_at ? new Date(payment.created_at).toLocaleString('ar-SA') : '-'} direction="ltr" />
               
@@ -163,10 +161,10 @@ export default function PaymentVerify() {
             <span>📎</span> صورة الإشعار (السند)
           </h2>
           
-          {payment.receipt_url ? (
-            <div className="relative group rounded-2xl overflow-hidden border border-navy-200 cursor-pointer bg-navy-50 flex items-center justify-center max-h-[600px]" onClick={() => setEnlargeImage(payment.receipt_url)}>
+          {payment.receipt_image_path ? (
+            <div className="relative group rounded-2xl overflow-hidden border border-navy-200 cursor-pointer bg-navy-50 flex items-center justify-center max-h-[600px]" onClick={() => setEnlargeImage(`/uploads/${payment.receipt_image_path}`)}>
               <img
-                src={payment.receipt_url}
+                src={`/uploads/${payment.receipt_image_path}`}
                 alt="إشعار الدفع"
                 className="max-w-full max-h-[600px] object-contain"
               />
@@ -195,7 +193,7 @@ export default function PaymentVerify() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Approve */}
               <div className="space-y-4 border-b md:border-b-0 md:border-l border-navy-100 pb-6 md:pb-0 md:pl-6">
-                <p className="text-sm font-semibold text-navy-500 mb-4">في حال كان الإشعار سليماً والمبلغ مطابقاً، قم بالتأكيد.</p>
+                <p className="text-sm font-semibold text-navy-500 mb-4">في حال كان الإشعار سليماً والمبلغ مطابقاً، قم بالتأكيد ليعتمد الطلب فوراً.</p>
                 <button
                   onClick={handleVerify}
                   disabled={actionLoading}
@@ -204,7 +202,7 @@ export default function PaymentVerify() {
                   {actionLoading ? 'جاري...' : (
                     <>
                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
-                      تأكيد صحة الدفع
+                      اعتماد الطلب (تأكيد الدفع)
                     </>
                   )}
                 </button>
@@ -212,7 +210,7 @@ export default function PaymentVerify() {
               
               {/* Reject */}
               <div className="space-y-4">
-                <label className="block text-sm font-semibold text-navy-500">في حال وجود مشكلة، اذكر السبب ثم ارفض.</label>
+                <label className="block text-sm font-semibold text-navy-500">في حال وجود مشكلة، اذكر السبب ليعود الطلب للعميل للتعديل.</label>
                 <textarea
                   placeholder="مثال: الإشعار غير واضح، المبلغ ناقص..."
                   value={rejectReason}
@@ -226,7 +224,7 @@ export default function PaymentVerify() {
                   className="w-full bg-error text-white py-3 rounded-xl hover:bg-red-600 font-bold disabled:opacity-50 transition-all flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                  رفض الدفع
+                  رفض الدفع وطلب التعديل
                 </button>
               </div>
             </div>
@@ -240,7 +238,7 @@ export default function PaymentVerify() {
             </div>
             <div>
               <h3 className="font-bold text-lg">تم تأكيد هذه الحوالة مسبقاً</h3>
-              <p className="text-emerald-600/80 font-medium text-sm">تم اعتماد الدفع وتحديث حالة الطلب المرتبط.</p>
+              <p className="text-emerald-600/80 font-medium text-sm">تم اعتماد الدفع وتحديث حالة الطلب المرتبط إلى (مقبول).</p>
             </div>
           </div>
         )}
@@ -262,7 +260,6 @@ export default function PaymentVerify() {
         )}
       </div>
 
-      {/* Enlarge Image Modal */}
       {enlargeImage && (
         <div className="fixed inset-0 bg-navy-900/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 lg:p-12 animate-fade-in" onClick={() => setEnlargeImage(null)}>
           <button onClick={() => setEnlargeImage(null)} className="absolute top-6 right-6 text-white/50 hover:text-white bg-white/10 hover:bg-white/20 p-3 rounded-full transition-all">

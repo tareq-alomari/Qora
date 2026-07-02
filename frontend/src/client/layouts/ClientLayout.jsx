@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@common/stores/authStore'
+import api from '@common/services/api'
 
 export default function ClientLayout() {
   const { user, isAuthenticated, logout } = useAuthStore()
@@ -41,7 +42,7 @@ export default function ClientLayout() {
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="flex flex-row-reverse items-center justify-between h-20" dir="ltr">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group">
               <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300 shadow-md shadow-primary-500/30">
@@ -55,7 +56,7 @@ export default function ClientLayout() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
+            <nav className="hidden md:flex items-center gap-8" dir="rtl">
               <Link 
                 to="/" 
                 className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
@@ -63,6 +64,69 @@ export default function ClientLayout() {
                 }`}
               >
                 الرئيسية
+              </Link>
+              
+              <Link 
+                to="/pricing" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                الباقات
+              </Link>
+              
+              <Link 
+                to="/photo-requirements" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                شروط الصورة
+              </Link>
+
+              <Link 
+                to="/about" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                عن المنصة
+              </Link>
+
+              <Link 
+                to="/help" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                المساعدة
+              </Link>
+
+              <Link 
+                to="/contact" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                تواصل معنا
+              </Link>
+
+              <Link 
+                to="/terms" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                الشروط
+              </Link>
+
+              <Link 
+                to="/privacy" 
+                className={`font-medium text-sm transition-colors duration-300 hover:text-primary-500 ${
+                  isHome && !scrolled ? 'text-white/90' : 'text-navy-600'
+                }`}
+              >
+                الخصوصية
               </Link>
 
               {isAuthenticated ? (
@@ -84,6 +148,26 @@ export default function ClientLayout() {
                     فحص النتيجة
                   </Link>
                   <div className="flex items-center gap-4 border-r border-navy-200/50 pr-4">
+                    <Link
+                      to="/my-account/notifications"
+                      className={`relative transition-colors ${
+                        isHome && !scrolled ? 'text-white/70 hover:text-white' : 'text-navy-400 hover:text-navy-700'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </Link>
+                    <Link
+                      to="/my-account/settings"
+                      className={`transition-colors ${
+                        isHome && !scrolled ? 'text-white/70 hover:text-white' : 'text-navy-400 hover:text-navy-700'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      </svg>
+                    </Link>
                     <span className={`text-sm font-medium ${isHome && !scrolled ? 'text-white/70' : 'text-navy-500'}`}>
                       {user?.full_name || user?.phone}
                     </span>
@@ -105,8 +189,8 @@ export default function ClientLayout() {
                   >
                     دخول
                   </Link>
-                  <Link
-                    to="/register"
+                  <Link 
+                    to="/login"
                     className="bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-primary-600 hover:-translate-y-0.5 transition-all duration-300 shadow-md shadow-primary-500/20"
                   >
                     التسجيل
@@ -143,6 +227,27 @@ export default function ClientLayout() {
               <Link to="/" className="block font-medium text-navy-900 hover:text-primary-500">
                 الرئيسية
               </Link>
+              <Link to="/pricing" className="block font-medium text-navy-900 hover:text-primary-500">
+                الباقات
+              </Link>
+              <Link to="/photo-requirements" className="block font-medium text-navy-900 hover:text-primary-500">
+                شروط الصورة
+              </Link>
+              <Link to="/about" className="block font-medium text-navy-900 hover:text-primary-500">
+                عن المنصة
+              </Link>
+              <Link to="/help" className="block font-medium text-navy-900 hover:text-primary-500">
+                المساعدة
+              </Link>
+              <Link to="/contact" className="block font-medium text-navy-900 hover:text-primary-500">
+                تواصل معنا
+              </Link>
+              <Link to="/terms" className="block font-medium text-navy-900 hover:text-primary-500">
+                الشروط
+              </Link>
+              <Link to="/privacy" className="block font-medium text-navy-900 hover:text-primary-500">
+                الخصوصية
+              </Link>
               {isAuthenticated ? (
                 <>
                   <Link to="/my-account" className="block font-medium text-navy-900 hover:text-primary-500">
@@ -150,6 +255,12 @@ export default function ClientLayout() {
                   </Link>
                   <Link to="/check-result" className="block font-medium text-navy-900 hover:text-primary-500">
                     فحص النتيجة
+                  </Link>
+                  <Link to="/my-account/notifications" className="block font-medium text-navy-900 hover:text-primary-500">
+                    الإشعارات
+                  </Link>
+                  <Link to="/my-account/settings" className="block font-medium text-navy-900 hover:text-primary-500">
+                    الإعدادات
                   </Link>
                   <div className="pt-4 border-t border-navy-100 flex items-center justify-between">
                     <span className="text-navy-500 font-medium">{user?.full_name || user?.phone}</span>
@@ -163,7 +274,7 @@ export default function ClientLayout() {
                   <Link to="/login" className="block text-center font-bold text-navy-900 py-3 bg-navy-50 rounded-xl">
                     تسجيل الدخول
                   </Link>
-                  <Link to="/register" className="block text-center text-white bg-primary-500 py-3 rounded-xl font-bold shadow-md shadow-primary-500/20">
+                  <Link to="/login" className="block text-center text-white bg-primary-500 py-3 rounded-xl font-bold shadow-md shadow-primary-500/20">
                     ابدأ التسجيل الآن
                   </Link>
                 </div>
@@ -208,7 +319,10 @@ export default function ClientLayout() {
             <div>
               <h4 className="text-white font-bold mb-6 tracking-wide">روابط هامة</h4>
               <ul className="space-y-3">
+                <li><Link to="/pricing" className="hover:text-primary-400 transition-colors">الباقات والأسعار</Link></li>
+                <li><Link to="/photo-requirements" className="hover:text-primary-400 transition-colors">متطلبات الصورة</Link></li>
                 <li><Link to="/about" className="hover:text-primary-400 transition-colors">عن المنصة</Link></li>
+                <li><Link to="/contact" className="hover:text-primary-400 transition-colors">تواصل معنا</Link></li>
                 <li><Link to="/help" className="hover:text-primary-400 transition-colors">المساعدة والأسئلة الشائعة</Link></li>
                 <li><Link to="/terms" className="hover:text-primary-400 transition-colors">الشروط والأحكام</Link></li>
                 <li><Link to="/privacy" className="hover:text-primary-400 transition-colors">سياسة الخصوصية</Link></li>

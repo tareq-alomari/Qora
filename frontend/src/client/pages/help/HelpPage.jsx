@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import SEO, { FAQSchema, BreadcrumbSchema } from '../../../common/components/SEO'
 
 const CATEGORIES = [
   {
@@ -112,8 +113,28 @@ export default function HelpPage() {
     setOpenItem((prev) => (prev === id ? null : id))
   }
 
+  const faqItems = [
+    { question: 'ما هي قرعة اللوتري DV Lottery؟', answer: 'قرعة الهجرة العشوائية (Diversity Visa Lottery) هي برنامج أمريكي يوفّر 55,000 تأشيرة سنوياً لأشخاص من دول ذات معدلات هجرة منخفضة.' },
+    { question: 'هل اليمن مؤهلة لقرعة اللوتري؟', answer: 'نعم، اليمن مؤهلة سنوياً للتقديم على قرعة الهجرة العشوائية الأمريكية.' },
+    { question: 'كم تكلفة التقديم عبر قرعة؟', answer: '1,000 ريال يمني فقط - نصف سعر السوق. تشمل فحص الصورة، تعبئة البيانات، والتقديم الرسمي.' },
+    { question: 'كيف أحصل على Confirmation Number؟', answer: 'بعد الدفع، نقوم بالتقديم نيابة عنك على dvprogram.state.gov ونستخرج رقم التأكيد.' },
+    { question: 'هل تضمنون الفوز بالقرعة؟', answer: 'لا، نحن منصة مساعدة للتقديم فقط. الفوز يعتمد على الاختيار العشوائي من وزارة الخارجية الأمريكية.' },
+  ]
+
   return (
     <div className="min-h-screen bg-navy-50 font-sans pb-16">
+      <SEO
+        title="المساعدة والدعم"
+        description="أسئلة شائعة حول قرعة الهجرة العشوائية DV Lottery: طريقة التقديم، الشروط، التكلفة، وكيفية الحصول على Confirmation Number."
+        url="/help"
+        jsonLd={[
+          FAQSchema(faqItems),
+          BreadcrumbSchema([
+            { name: 'الرئيسية', path: '/' },
+            { name: 'المساعدة', path: '/help' },
+          ]),
+        ]}
+      />
       {/* Hero */}
       <section className="relative overflow-hidden bg-navy-900 text-white">
         <div className="absolute inset-0 bg-gradient-to-br from-primary-900 via-navy-900 to-navy-800 opacity-90 z-0"></div>

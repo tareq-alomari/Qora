@@ -4,6 +4,9 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'zustand', 'use-sync-external-store/shim'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -20,5 +23,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
   },
 })

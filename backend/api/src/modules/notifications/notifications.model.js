@@ -34,4 +34,11 @@ const markAsRead = (id, userId) => {
     .returning('*');
 };
 
-module.exports = { findByUser, countByUser, unreadByUser, create, markAsRead };
+const markAllAsRead = (userId) => {
+  return db('notifications')
+    .where({ user_id: userId, status: 'pending' })
+    .update({ status: 'read', read_at: db.fn.now() })
+    .returning('*');
+};
+
+module.exports = { findByUser, countByUser, unreadByUser, create, markAsRead, markAllAsRead };

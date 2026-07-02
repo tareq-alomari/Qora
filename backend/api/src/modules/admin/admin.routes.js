@@ -3,7 +3,7 @@ const controller = require('./admin.controller');
 const { authenticate } = require('../../common/auth.middleware');
 const { authorize } = require('../../common/role.middleware');
 const { validate } = require('../../common/validate.middleware');
-const { updateUserSchema, updateSettingsSchema, bulkNotificationSchema } = require('./admin.schema');
+const { updateUserSchema, updateSettingsSchema, bulkNotificationSchema, createUserSchema } = require('./admin.schema');
 const rateLimit = require('express-rate-limit');
 
 const router = Router();
@@ -18,11 +18,17 @@ router.use(authenticate, authorize('admin'), adminLimiter);
 
 router.get('/stats', controller.getStats);
 router.get('/users', controller.listUsers);
+router.post('/users', validate(createUserSchema), controller.createUser);
+router.get('/users/:id', controller.getUserById);
 router.patch('/users/:id', validate(updateUserSchema), controller.updateUser);
+router.get('/audit-logs', controller.listAuditLogs);
 router.get('/settings', controller.getSettings);
 router.patch('/settings', validate(updateSettingsSchema), controller.updateSettings);
 router.get('/fraud-flags', controller.getFraudFlags);
 router.get('/export/orders', controller.exportOrders);
 router.post('/bulk-notifications', validate(bulkNotificationSchema), controller.sendBulkNotification);
+router.post('/headless/submit', controller.enqueueSubmission);
+router.post('/headless/check-results', controller.enqueueResultCheck);
+router.get('/headless/queue-status', controller.getQueueStatus);
 
 module.exports = router;

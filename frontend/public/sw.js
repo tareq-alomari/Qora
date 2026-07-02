@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qor3a-v1';
+const CACHE_NAME = 'qor3a-v2';
 
 const PRECACHE_URLS = [
   '/',

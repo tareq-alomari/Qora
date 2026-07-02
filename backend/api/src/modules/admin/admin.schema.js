@@ -45,4 +45,20 @@ const bulkNotificationSchema = Joi.object({
   }).default({}),
 });
 
-module.exports = { updateUserSchema, updateSettingsSchema, bulkNotificationSchema };
+const createUserSchema = Joi.object({
+  full_name: Joi.string().min(2).max(255).required().messages({
+    'any.required': 'الاسم مطلوب',
+    'string.min': 'الاسم يجب أن يكون حرفين على الأقل',
+  }),
+  phone: Joi.string().required().messages({
+    'any.required': 'رقم الهاتف مطلوب',
+  }),
+  email: Joi.string().email().allow('').optional(),
+  password: Joi.string().min(6).required().messages({
+    'any.required': 'كلمة المرور مطلوبة',
+    'string.min': 'كلمة المرور يجب أن تكون 6 أحرف على الأقل',
+  }),
+  role: Joi.string().valid('client', 'employee', 'admin').default('employee'),
+});
+
+module.exports = { updateUserSchema, updateSettingsSchema, bulkNotificationSchema, createUserSchema };

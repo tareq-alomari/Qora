@@ -115,7 +115,43 @@ const changeStatus = async (req, res, next) => {
   }
 };
 
+const updateContactInfo = async (req, res, next) => {
+  try {
+    const result = await orderService.updateContactInfo(req.params.id, req.user.id, req.body);
+    res.json({ data: result, message: 'تم تحديث معلومات الاتصال' });
+  } catch (err) { next(err); }
+};
+
+const updateEducationStatus = async (req, res, next) => {
+  try {
+    const result = await orderService.updateEducationStatus(req.params.id, req.user.id, req.body);
+    res.json({ data: result, message: 'تم تحديث الحالة التعليمية' });
+  } catch (err) { next(err); }
+};
+
+const updateSpouseData = async (req, res, next) => {
+  try {
+    const result = await orderService.updateSpouseData(req.params.id, req.user.id, req.body);
+    res.json({ data: result, message: 'تم تحديث بيانات الزوج/الزوجة' });
+  } catch (err) { next(err); }
+};
+
+const updateChildrenData = async (req, res, next) => {
+  try {
+    const result = await orderService.updateChildrenData(req.params.id, req.user.id, req.body);
+    res.json({ data: result, message: 'تم تحديث بيانات الأبناء' });
+  } catch (err) { next(err); }
+};
+
+const submitOrder = async (req, res, next) => {
+  try {
+    const result = await orderService.submitOrder(req.params.id, req.user.id);
+    res.json({ data: result, message: 'تم إرسال الطلب' });
+  } catch (err) { next(err); }
+};
+
 module.exports = {
   create, list, getById, updatePersonalData,
+  updateContactInfo, updateEducationStatus, updateSpouseData, updateChildrenData, submitOrder,
   uploadPhoto, getPhotoStatus, uploadReceipt, uploadPassportScan, changeStatus,
 };

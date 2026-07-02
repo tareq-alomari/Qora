@@ -2,11 +2,12 @@ const crypto = require('crypto');
 const db = require('../../database/db');
 const orderModel = require('./orders.model');
 const { AppError } = require('../../common/error-handler');
-const { assertTransition, checkGuard } = require('../../common/state-machine');
+const { assertTransition, checkGuard, ACTIONS } = require('../../common/state-machine');
 const storage = require('../../common/storage');
 const notifier = require('../../common/notifier');
 const { encrypt, decrypt } = require('../../common/encryption');
 const fraudDetector = require('../../common/fraud-detector');
+const aiService = require('../../common/ai-service');
 
 const create = async (userId, data, ip = null) => {
   const active = await orderModel.getActiveOrder(userId);
@@ -24,35 +25,39 @@ const create = async (userId, data, ip = null) => {
     order_number: orderNumber,
   });
 
-  await db('applicant_data').insert({
-    order_id: order.id,
-    first_name: data.personal_data.first_name,
-    middle_name: data.personal_data.middle_name || null,
-    last_name: data.personal_data.last_name,
-    gender: data.personal_data.gender,
-    birth_date: data.personal_data.birth_date,
-    birth_city: data.personal_data.birth_city,
-    birth_country: data.personal_data.birth_country || 'YEMEN',
-    country_of_eligibility: data.personal_data.country_of_eligibility || 'YEMEN',
-    marital_status: data.personal_data.marital_status,
-    education_level: String(data.personal_data.education_level),
-    passport_number: data.personal_data.passport_number,
-    encrypted_passport_number: encrypt(data.personal_data.passport_number),
-    passport_expiry: data.personal_data.passport_expiry,
-    spouse_data: data.spouse_data || {},
-    encrypted_spouse_data: encrypt(data.spouse_data || {}),
-    children_data: data.children_data || [],
-    encrypted_children_data: encrypt(data.children_data || []),
-    email: data.contact.email || null,
-    phone: data.contact.phone,
-    alt_phone: data.contact.alt_phone || null,
-    address_line1: data.address.street,
-    address_line2: data.address.district || null,
-    city: data.address.city,
-    country: data.address.country || 'YEMEN',
-    postal_code: data.address.postal_code || null,
-    district: data.address.district || null,
-  });
+  if (data.personal_data) {
+    await db('applicant_data').insert({
+      order_id: order.id,
+      first_name: data.personal_data.first_name,
+      middle_name: data.personal_data.middle_name || null,
+      last_name: data.personal_data.last_name,
+      gender: data.personal_data.gender,
+      birth_date: data.personal_data.birth_date,
+      birth_city: data.personal_data.birth_city,
+      birth_country: data.personal_data.birth_country || 'YEMEN',
+      country_of_eligibility: data.personal_data.country_of_eligibility || 'YEMEN',
+      marital_status: data.personal_data.marital_status,
+      education_level: String(data.personal_data.education_level),
+      passport_number: data.personal_data.passport_number,
+      encrypted_passport_number: encrypt(data.personal_data.passport_number),
+      passport_expiry: data.personal_data.passport_expiry,
+      spouse_data: data.spouse_data || {},
+      encrypted_spouse_data: encrypt(data.spouse_data || {}),
+      children_data: data.children_data || [],
+      encrypted_children_data: encrypt(data.children_data || []),
+      email: data.contact ? data.contact.email || null : null,
+      phone: data.contact ? data.contact.phone : null,
+      alt_phone: data.contact ? data.contact.alt_phone || null : null,
+      address_line1: data.address ? data.address.street : null,
+      address_line2: data.address ? data.address.district || null : null,
+      city: data.address ? data.address.city : null,
+      country: data.address ? data.address.country || 'YEMEN' : null,
+      postal_code: data.address ? data.address.postal_code || null : null,
+      district: data.address ? data.address.district || null : null,
+    });
+  } else {
+    await db('applicant_data').insert({ order_id: order.id });
+  }
 
   await db('audit_logs').insert({
     order_id: order.id,
@@ -89,7 +94,7 @@ const create = async (userId, data, ip = null) => {
 
 const list = async (userId, role, query) => {
   const page = parseInt(query.page) || 1;
-  const limit = parseInt(query.limit) || 20;
+  const limit = Math.min(parseInt(query.limit) || 20, 100);
   const offset = (page - 1) * limit;
 
   let rows;
@@ -145,9 +150,71 @@ const getById = async (orderId, userId, role) => {
     }
   }
 
+  const paymentStatus = payment ? payment.status : null;
+
+  let photoValidation = null;
+  let photoUrl = null;
+  if (applicantData) {
+    if (applicantData.photo_validation) {
+      try {
+        photoValidation = typeof applicantData.photo_validation === 'string'
+          ? JSON.parse(applicantData.photo_validation)
+          : applicantData.photo_validation;
+      } catch {
+        photoValidation = applicantData.photo_validation;
+      }
+    }
+    if (applicantData.photo_path) {
+      photoUrl = storage.getUrl(applicantData.photo_path);
+    }
+  }
+
   return {
-    ...order,
-    personal_data: applicantData || null,
+    order_id: order.id,
+    order_number: order.order_number,
+    status: order.status,
+    service_type: order.service_type,
+    total_price: order.total_price,
+    currency: order.currency,
+    is_active: order.is_active,
+    result: order.result,
+    fraud_level: order.fraud_level,
+    notes: order.notes,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    personal_data: applicantData ? {
+      first_name: applicantData.first_name,
+      middle_name: applicantData.middle_name,
+      last_name: applicantData.last_name,
+      gender: applicantData.gender,
+      birth_date: applicantData.birth_date,
+      birth_city: applicantData.birth_city,
+      birth_country: applicantData.birth_country,
+      country_of_eligibility: applicantData.country_of_eligibility,
+    } : null,
+    contact_info: applicantData ? {
+      phone: applicantData.phone,
+      email: applicantData.email,
+      alt_phone: applicantData.alt_phone,
+      street: applicantData.address_line1,
+      city: applicantData.city,
+      district: applicantData.district,
+      postal_code: applicantData.postal_code,
+    } : null,
+    education_status: applicantData ? {
+      education_level: applicantData.education_level,
+      marital_status: applicantData.marital_status,
+      passport_number: applicantData.passport_number,
+      passport_expiry: applicantData.passport_expiry,
+    } : null,
+    spouse_data: applicantData ? applicantData.spouse_data : null,
+    children_data: applicantData ? applicantData.children_data : null,
+    photo_status: applicantData ? (applicantData.photo_path ? 'uploaded' : null) : null,
+    photo_path: applicantData ? applicantData.photo_path : null,
+    photo_url: photoUrl,
+    photo_validation: photoValidation,
+    confirmation_number: applicantData ? applicantData.confirmation_number : null,
+    payment_status: paymentStatus,
     payment: payment || null,
     audit_log: auditLog || [],
   };
@@ -271,19 +338,61 @@ const uploadPhoto = async (orderId, userId, file) => {
   await storage.save(file.buffer, photoPath);
   await db('applicant_data').where({ order_id: orderId }).update({ photo_path: photoPath, photo_hash: photoHash });
 
-  const newStatus = 'photo_pending';
-  await orderModel.update(orderId, { status: newStatus });
+  const aiResult = await aiService.validatePhoto(file.buffer);
+
+  if (aiResult.success) {
+    const validation = {
+      status: aiResult.data.valid ? 'accepted' : 'rejected',
+      confidence: aiResult.data.confidence,
+      checks: aiResult.data.checks,
+      reasons: aiResult.data.reasons || [],
+      suggestions: aiResult.data.suggestions || [],
+      checked_at: new Date().toISOString(),
+    };
+
+    await db('applicant_data').where({ order_id: orderId }).update({ photo_validation: JSON.stringify(validation) });
+
+    const newStatus = aiResult.data.valid ? 'photo_accepted' : 'photo_rejected';
+    const action = aiResult.data.valid ? 'ai_validation_pass' : 'ai_validation_fail';
+
+    await orderModel.update(orderId, { status: newStatus });
+
+    await db('audit_logs').insert({
+      order_id: orderId,
+      user_id: userId,
+      action,
+      from_status: 'photo_pending',
+      to_status: newStatus,
+      metadata: { confidence: aiResult.data.confidence, reasons: aiResult.data.reasons },
+    });
+
+    return {
+      photo_path: photoPath,
+      photo_url: storage.getUrl(photoPath),
+      status: newStatus,
+      ai_check: {
+        status: validation.status,
+        confidence: validation.confidence,
+        reasons: validation.reasons,
+        suggestions: validation.suggestions,
+        checked_at: validation.checked_at,
+      },
+    };
+  }
+
+  const pendingStatus = 'photo_pending';
+  await orderModel.update(orderId, { status: pendingStatus });
 
   await db('audit_logs').insert({
     order_id: orderId,
     user_id: userId,
     action: 'upload_photo',
     from_status: order.status,
-    to_status: newStatus,
-    metadata: {},
+    to_status: pendingStatus,
+    metadata: { ai_error: aiResult.error },
   });
 
-  return { photo_path: photoPath, photo_url: storage.getUrl(photoPath), status: newStatus, ai_check: { status: 'processing', estimated_time: 3 } };
+  return { photo_path: photoPath, photo_url: storage.getUrl(photoPath), status: pendingStatus, ai_check: { status: 'processing', estimated_time: 3 } };
 };
 
 const uploadPassportScan = async (orderId, userId, file) => {
@@ -391,21 +500,7 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
     throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
   }
 
-  const actionMap = {
-    approve_photo: { from: 'photo_pending', to: 'photo_accepted' },
-    reject_photo: { from: 'photo_pending', to: 'photo_rejected' },
-    verify_payment: { from: 'payment_pending', to: 'payment_verification' },
-    approve: { from: 'payment_verification', to: 'approved' },
-    request_correction: { from: null, to: 'needs_correction' },
-    resubmit_data: { from: 'needs_correction', to: 'data_entry_complete' },
-    resubmit_photo: { from: 'needs_correction', to: 'photo_pending' },
-    retry_payment: { from: 'needs_correction', to: 'payment_pending' },
-    submit_official: { from: 'approved', to: 'submitted' },
-    mark_completed: { from: 'submitted', to: 'completed' },
-    cancel: { from: null, to: 'cancelled' },
-  };
-
-  const transition = actionMap[action];
+  const transition = ACTIONS[action];
   if (!transition) throw new AppError('Invalid action', 400, 'INVALID_ACTION');
 
   if (transition.from !== null && order.status !== transition.from) {
@@ -420,6 +515,8 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   await checkGuard(action, order);
 
   if (action === 'verify_payment') {
+    await db('payments').where({ order_id: orderId }).update({ status: 'verified', verified_at: db.fn.now(), verified_by: userId });
+
     const throughputCheck = await fraudDetector.checkEmployeeThroughput(userId);
     if (throughputCheck.flagged) {
       await fraudDetector.flagOrder(
@@ -461,14 +558,118 @@ const changeStatus = async (orderId, userId, role, { action, notes, confirmation
   return { order: updated };
 };
 
+const updateApplicantFields = async (orderId, userId, fields) => {
+  const order = await orderModel.findById(orderId);
+  if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+  if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
+  if (order.status === 'cancelled') throw new AppError('Order is cancelled', 400, 'ORDER_CANCELLED');
+  if (!['draft', 'needs_correction'].includes(order.status)) {
+    throw new AppError('Cannot edit data in current status', 409, 'INVALID_STATE');
+  }
+
+  const existing = await db('applicant_data').where({ order_id: orderId }).first();
+  if (existing) {
+    await db('applicant_data').where({ order_id: orderId }).update(fields);
+  } else {
+    await db('applicant_data').insert({ order_id: orderId, ...fields });
+  }
+
+  return orderModel.findById(orderId);
+};
+
+const updateContactInfo = async (orderId, userId, data) => {
+  const fields = {};
+  if (data.phone) fields.phone = data.phone;
+  if (data.email !== undefined) fields.email = data.email || null;
+  if (data.alt_phone !== undefined) fields.alt_phone = data.alt_phone || null;
+  if (data.street) fields.address_line1 = data.street;
+  if (data.city) fields.city = data.city;
+  if (data.district !== undefined) fields.district = data.district || null;
+  if (data.district !== undefined) fields.address_line2 = data.district || null;
+  if (data.postal_code !== undefined) fields.postal_code = data.postal_code || null;
+  if (data.country) fields.country = data.country;
+
+  const order = await updateApplicantFields(orderId, userId, fields);
+  return { order_id: order.id, status: order.status };
+};
+
+const updateEducationStatus = async (orderId, userId, data) => {
+  const fields = {};
+  if (data.education_level) fields.education_level = String(data.education_level);
+  if (data.marital_status) fields.marital_status = data.marital_status;
+  if (data.passport_number) {
+    fields.passport_number = data.passport_number;
+    fields.encrypted_passport_number = encrypt(data.passport_number);
+  }
+  if (data.passport_expiry) fields.passport_expiry = data.passport_expiry;
+
+  const order = await updateApplicantFields(orderId, userId, fields);
+  return { order_id: order.id, status: order.status };
+};
+
+const updateSpouseData = async (orderId, userId, data) => {
+  const fields = {
+    spouse_data: data,
+    encrypted_spouse_data: encrypt(data),
+  };
+
+  const order = await updateApplicantFields(orderId, userId, fields);
+  return { order_id: order.id, status: order.status };
+};
+
+const updateChildrenData = async (orderId, userId, data) => {
+  const fields = {
+    children_data: data || [],
+    encrypted_children_data: encrypt(data || []),
+  };
+
+  const order = await updateApplicantFields(orderId, userId, fields);
+  return { order_id: order.id, status: order.status };
+};
+
+const submitOrder = async (orderId, userId) => {
+  const order = await orderModel.findById(orderId);
+  if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+  if (order.user_id !== userId) throw new AppError('Forbidden', 403, 'FORBIDDEN');
+
+  // If already past draft, just confirm success (order is already submitted/processing)
+  if (order.status !== 'draft' && order.status !== 'needs_correction') {
+    return { order_id: order.id, order_number: order.order_number, status: order.status };
+  }
+
+  await checkGuard('submit_data', order);
+  assertTransition(order.status, 'data_entry_complete', 'client');
+
+  await orderModel.update(orderId, { status: 'data_entry_complete' });
+  await db('audit_logs').insert({
+    order_id: orderId, user_id: userId,
+    action: 'submit_data',
+    from_status: order.status, to_status: 'data_entry_complete',
+    metadata: {},
+  });
+
+  const speedCheck = await fraudDetector.checkSubmissionSpeed(orderId, userId);
+  if (speedCheck.flagged) {
+    await fraudDetector.flagOrder(orderId, userId,
+      `إدخال سريع جداً - ${speedCheck.timeSeconds} ثانية فقط بين الخطوات`, 1);
+  }
+
+  return { order_id: order.id, order_number: order.order_number, status: 'data_entry_complete' };
+};
+
 module.exports = {
   create,
   list,
   getById,
   updatePersonalData,
+  updateContactInfo,
+  updateEducationStatus,
+  updateSpouseData,
+  updateChildrenData,
+  submitOrder,
   uploadPhoto,
-  uploadPassportScan,
   getPhotoStatus,
+  uploadPassportScan,
   uploadReceipt,
   changeStatus,
 };

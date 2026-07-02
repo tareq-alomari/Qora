@@ -36,4 +36,13 @@ const unreadCount = async (req, res, next) => {
   }
 };
 
-module.exports = { list, create, markAsRead, unreadCount };
+const markAllAsRead = async (req, res, next) => {
+  try {
+    await notifService.markAllAsRead(req.user.id);
+    res.json({ message: 'تم تحديد الكل كمقروء' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { list, create, markAsRead, markAllAsRead, unreadCount };

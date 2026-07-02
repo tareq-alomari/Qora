@@ -125,7 +125,6 @@ app.use('/api/v1/users', require('./modules/users/users.routes'));
 app.use('/api/v1/orders', require('./modules/orders/orders.routes'));
 app.use('/api/v1/payments', require('./modules/payments/payments.routes'));
 app.use('/api/v1/notifications', require('./modules/notifications/notifications.routes'));
-app.use('/api/v1', require('./modules/results/results.routes'));
 app.use('/api/v1/orders', require('./modules/results/results.routes'));
 app.use('/api/v1/push-subscriptions', require('./modules/push-subscriptions/push-subscriptions.routes'));
 app.use('/api/v1/admin', require('./modules/admin/admin.routes'));

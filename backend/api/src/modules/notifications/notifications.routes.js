@@ -10,5 +10,6 @@ router.get('/', authenticate, controller.list);
 router.post('/', authenticate, validate(createNotificationSchema), controller.create);
 router.patch('/:id/read', authenticate, controller.markAsRead);
 router.get('/unread-count', authenticate, controller.unreadCount);
+router.post('/read-all', authenticate, controller.markAllAsRead);
 
 module.exports = router;

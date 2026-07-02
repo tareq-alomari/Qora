@@ -1,3 +1,4 @@
+const fetch = require('node-fetch');
 const config = require('../config');
 const logger = require('../utils/logger');
 
@@ -8,11 +9,11 @@ class CaptchaHandler {
   }
 
   async solve(page) {
-    if (this.apiKey) {
-      return this.solveWith2Captcha(page);
+    if (!this.apiKey) {
+      logger.warn('No CAPTCHA API key configured, falling back to manual queue');
+      return this.solveManually(page);
     }
-    logger.warn('No CAPTCHA API key configured, falling back to manual queue');
-    return this.solveManually(page);
+    return this.solveWith2Captcha(page);
   }
 
   async solveWith2Captcha(page) {
@@ -25,15 +26,21 @@ class CaptchaHandler {
     const src = await captchaImage.getProperty('src');
     const captchaUrl = await src.jsonValue();
 
+    logger.info('Downloading CAPTCHA image for 2Captcha');
+    const imgResp = await fetch(captchaUrl);
+    const imgBuffer = await imgResp.buffer();
+    const imgBase64 = imgBuffer.toString('base64');
+
     logger.info('Sending CAPTCHA to 2Captcha');
+    const inParams = new URLSearchParams();
+    inParams.append('key', this.apiKey);
+    inParams.append('method', 'base64');
+    inParams.append('body', imgBase64);
+    inParams.append('json', '1');
+
     const inRes = await fetch(`${this.baseUrl}/in.php`, {
       method: 'POST',
-      body: new URLSearchParams({
-        key: this.apiKey,
-        method: 'base64',
-        body: captchaUrl,
-        json: '1',
-      }),
+      body: inParams,
     });
     const inData = await inRes.json();
 
@@ -48,14 +55,16 @@ class CaptchaHandler {
 
     while (Date.now() - start < timeout) {
       await new Promise(r => setTimeout(r, 5000));
+
+      const resParams = new URLSearchParams();
+      resParams.append('key', this.apiKey);
+      resParams.append('action', 'get');
+      resParams.append('id', requestId);
+      resParams.append('json', '1');
+
       const resRes = await fetch(`${this.baseUrl}/res.php`, {
         method: 'POST',
-        body: new URLSearchParams({
-          key: this.apiKey,
-          action: 'get',
-          id: requestId,
-          json: '1',
-        }),
+        body: resParams,
       });
       const resData = await resRes.json();
 
@@ -64,7 +73,6 @@ class CaptchaHandler {
         const textInput = await page.$('input[name*="captcha"], input[id*="captcha"], #captcha_text');
         if (textInput) {
           await textInput.type(resData.request);
-          return resData.request;
         }
         return resData.request;
       }
@@ -89,10 +97,15 @@ class CaptchaHandler {
     logger.info(`CAPTCHA screenshot saved: ${screenshotPath}. Manual intervention required.`);
 
     const existing = await page.$('#captcha_text, input[name*="captcha"]');
-    if (existing) {
-      const textarea = await page.$('textarea, input[type="text"]:not([name*="email"]):not([name*="phone"])');
-      if (textarea) {
-        await textarea.focus();
+    if (!existing) {
+      const inputs = await page.$$('input[type="text"]');
+      for (const input of inputs) {
+        const name = await input.getProperty('name');
+        const nameVal = await name.jsonValue();
+        if (nameVal && !nameVal.includes('email') && !nameVal.includes('phone')) {
+          await input.focus();
+          break;
+        }
       }
     }
     return null;

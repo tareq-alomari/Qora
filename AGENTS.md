@@ -264,16 +264,30 @@ tests/
 
 ## 7. الأمان (Security)
 
-### 7.1 JWT
+### 7.1 Auth: Hybrid Model (3 Methods)
+| Method | Flow | Use Case |
+|--------|------|----------|
+| **Phone + OTP** | Send OTP via WhatsApp/SMS → verify 6-digit code | Primary for Yemeni users (fast, no email needed) |
+| **Email + Password** | `POST /auth/register-email` → bcrypt hashed → JWT | Traditional auth |
+| **Google OAuth** | Frontend GIS token → `POST /auth/google` → verify via `google-auth-library` → JWT | Convenience |
+
 - Access Token: 24h (في الـ Authorization header).
-- Refresh Token: 7 days (في httpOnly cookie).
-- الـ OTP: 5 دقائق صلاحية، يُرسل للهاتف.
+- Refresh Token: 7 days (في httpOnly cookie, automatically refreshed by axios interceptor on 401).
+- OTP: 5 minutes expiry, rate-limited (3/hour register, 5/min login, 10/min verify).
+- Email verification: `is_email_verified` flag on users table. Future: send verification email.
+- Google uses Google Identity Services (GIS) popup on frontend → ID token sent to backend → verified server-side with `google-auth-library` → JWT issued.
+- If `GOOGLE_CLIENT_ID` env var is missing, Google button shows "قريباً" (coming soon) tooltip.
 
 ### 7.2 Rate Limiting
 | Endpoint | Limit | Scope |
 |----------|-------|-------|
-| `POST /auth/login` | 5/min | per IP |
-| `POST /auth/register` | 3/hour | per IP |
+| `POST /auth/login` (OTP) | 5/min | per IP |
+| `POST /auth/register` (OTP) | 3/hour | per IP |
+| `POST /auth/register-email` | 3/hour | per IP |
+| `POST /auth/login-email` | 10/min | per IP |
+| `POST /auth/google` | 5/min | per IP |
+| `POST /auth/verify-otp` | 10/min | per IP |
+| `POST /auth/refresh` | 10/hour | per IP |
 | `POST /orders` | 10/min | per user |
 | `PATCH /orders/:id/status` | 30/min | per employee |
 
@@ -324,7 +338,7 @@ chore:    مهام تشغيلية (dependencies, config)
 
 | ✅ مسموح | ❌ ممنوع |
 |----------|----------|
-| Express, Knex, Joi, JWT, bcrypt, Winston, Bull | أي مكتبة غير معروفة أو مهجورة |
+| Express, Knex, Joi, JWT, bcrypt, Winston, Bull, google-auth-library | أي مكتبة غير معروفة أو مهجورة |
 | `async/await` مع `try/catch` | `callback hell` أو `promise chains` بدون داعي |
 | CommonJS (`require`) | ES Modules (`import`) في backend حالياً |
 | TypeScript JSDoc للتوثيق | TypeScript compile (حتى إشعار آخر) |
@@ -363,6 +377,7 @@ DRAFT → DATA_ENTRY_COMPLETE → PHOTO_PENDING
 - `S3_ENDPOINT`, `S3_BUCKET`
 - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`
 - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX_REQUESTS`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 
 ---
 

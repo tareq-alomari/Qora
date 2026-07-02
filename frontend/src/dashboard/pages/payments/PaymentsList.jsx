@@ -16,11 +16,10 @@ const STATUS_COLORS = {
 }
 
 const METHOD_LABELS = {
-  credit: 'بطاقة ائتمان',
-  bank: 'تحويل بنكي',
+  kuraimi: 'كريمي',
+  jeeb: 'جيب',
+  one_cash: 'ون كاش',
   mobile_money: 'موبايل موني',
-  cash: 'نقدي',
-  other: 'أخرى',
 }
 
 export default function PaymentsList() {
@@ -126,7 +125,7 @@ export default function PaymentsList() {
                         <div className="w-8 h-8 rounded-lg bg-navy-50 flex items-center justify-center text-navy-500 border border-navy-100">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                         </div>
-                        <span className="text-sm font-bold text-navy-900">{METHOD_LABELS[pm.method] || pm.method}</span>
+                        <span className="text-sm font-bold text-navy-900">{METHOD_LABELS[pm.provider] || pm.provider}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

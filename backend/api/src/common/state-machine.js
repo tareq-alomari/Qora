@@ -62,6 +62,20 @@ const GUARDS = {
     }
     return true;
   },
+  approve: async (order) => {
+    const payment = await require('../database/db')('payments').where({ order_id: order.id }).first();
+    if (!payment || payment.status !== 'verified') {
+      throw new AppError('Payment must be verified before approval', 400, 'PAYMENT_NOT_VERIFIED');
+    }
+    return true;
+  },
+  submit_official: async (order) => {
+    const applicant = await require('../database/db')('applicant_data').where({ order_id: order.id }).first();
+    if (!applicant || !applicant.confirmation_number) {
+      throw new AppError('Confirmation number is required before marking as submitted', 400, 'CONFIRMATION_REQUIRED');
+    }
+    return true;
+  },
 };
 
 const canTransition = (fromStatus, toStatus) => {
