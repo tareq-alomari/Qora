@@ -159,7 +159,7 @@ export default function PhotoRequirements() {
         <div className="bg-gradient-to-br from-primary-900 to-navy-900 rounded-3xl p-10 md:p-14 text-center text-white shadow-2xl">
           <h2 className="text-2xl md:text-3xl font-black mb-4">جاهز لبدء التسجيل؟</h2>
           <p className="text-primary-100 mb-8 max-w-lg mx-auto">تأكد من صورتك وابدأ رحلة التقديم على قرعة الهجرة العشوائية.</p>
-          <Link to="/login" className="inline-flex items-center gap-2 bg-white text-primary-600 px-10 py-4 rounded-xl font-bold text-lg hover:bg-primary-50 transition-all shadow-lg hover:-translate-y-1">
+          <Link to="/register" className="inline-flex items-center gap-2 bg-white text-primary-600 px-10 py-4 rounded-xl font-bold text-lg hover:bg-primary-50 transition-all shadow-lg hover:-translate-y-1">
             إنشاء حساب جديد
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
           </Link>

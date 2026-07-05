@@ -1,0 +1,110 @@
+register:1 <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes">
+register:1 Error while trying to use the following icon from the Manifest: http://localhost:5173/icons/icon-192x192.png (Download error or resource isn't a valid image)
+api/v1/auth/login-email:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/v1/auth/login-email:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/v1/auth/login-email:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+api/v1/auth/login-email:1  Failed to load resource: the server responded with a status of 500 (Internal Server Error)
+authStore.js:39  POST http://localhost:5173/api/v1/auth/register-email 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=ccb33e42:2104
+xhr @ axios.js?v=ccb33e42:1964
+dispatchRequest @ axios.js?v=ccb33e42:2805
+Promise.then
+_request @ axios.js?v=ccb33e42:3043
+request @ axios.js?v=ccb33e42:2926
+httpMethod @ axios.js?v=ccb33e42:3091
+wrap @ axios.js?v=ccb33e42:8
+(anonymous) @ authStore.js:39
+(anonymous) @ AuthPage.jsx:72
+callCallback2 @ chunk-NUMECXU6.js?v=ccb33e42:3674
+invokeGuardedCallbackDev @ chunk-NUMECXU6.js?v=ccb33e42:3699
+invokeGuardedCallback @ chunk-NUMECXU6.js?v=ccb33e42:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-NUMECXU6.js?v=ccb33e42:3736
+executeDispatch @ chunk-NUMECXU6.js?v=ccb33e42:7014
+processDispatchQueueItemsInOrder @ chunk-NUMECXU6.js?v=ccb33e42:7034
+processDispatchQueue @ chunk-NUMECXU6.js?v=ccb33e42:7043
+dispatchEventsForPlugins @ chunk-NUMECXU6.js?v=ccb33e42:7051
+(anonymous) @ chunk-NUMECXU6.js?v=ccb33e42:7174
+batchedUpdates$1 @ chunk-NUMECXU6.js?v=ccb33e42:18913
+batchedUpdates @ chunk-NUMECXU6.js?v=ccb33e42:3579
+dispatchEventForPluginEventSystem @ chunk-NUMECXU6.js?v=ccb33e42:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-NUMECXU6.js?v=ccb33e42:5478
+dispatchEvent @ chunk-NUMECXU6.js?v=ccb33e42:5472
+dispatchDiscreteEvent @ chunk-NUMECXU6.js?v=ccb33e42:5449
+authStore.js:39  POST http://localhost:5173/api/v1/auth/register-email 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=ccb33e42:2104
+xhr @ axios.js?v=ccb33e42:1964
+dispatchRequest @ axios.js?v=ccb33e42:2805
+Promise.then
+_request @ axios.js?v=ccb33e42:3043
+request @ axios.js?v=ccb33e42:2926
+httpMethod @ axios.js?v=ccb33e42:3091
+wrap @ axios.js?v=ccb33e42:8
+(anonymous) @ authStore.js:39
+(anonymous) @ AuthPage.jsx:72
+callCallback2 @ chunk-NUMECXU6.js?v=ccb33e42:3674
+invokeGuardedCallbackDev @ chunk-NUMECXU6.js?v=ccb33e42:3699
+invokeGuardedCallback @ chunk-NUMECXU6.js?v=ccb33e42:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-NUMECXU6.js?v=ccb33e42:3736
+executeDispatch @ chunk-NUMECXU6.js?v=ccb33e42:7014
+processDispatchQueueItemsInOrder @ chunk-NUMECXU6.js?v=ccb33e42:7034
+processDispatchQueue @ chunk-NUMECXU6.js?v=ccb33e42:7043
+dispatchEventsForPlugins @ chunk-NUMECXU6.js?v=ccb33e42:7051
+(anonymous) @ chunk-NUMECXU6.js?v=ccb33e42:7174
+batchedUpdates$1 @ chunk-NUMECXU6.js?v=ccb33e42:18913
+batchedUpdates @ chunk-NUMECXU6.js?v=ccb33e42:3579
+dispatchEventForPluginEventSystem @ chunk-NUMECXU6.js?v=ccb33e42:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-NUMECXU6.js?v=ccb33e42:5478
+dispatchEvent @ chunk-NUMECXU6.js?v=ccb33e42:5472
+dispatchDiscreteEvent @ chunk-NUMECXU6.js?v=ccb33e42:5449
+authStore.js:39  POST http://localhost:5173/api/v1/auth/register-email 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=ccb33e42:2104
+xhr @ axios.js?v=ccb33e42:1964
+dispatchRequest @ axios.js?v=ccb33e42:2805
+Promise.then
+_request @ axios.js?v=ccb33e42:3043
+request @ axios.js?v=ccb33e42:2926
+httpMethod @ axios.js?v=ccb33e42:3091
+wrap @ axios.js?v=ccb33e42:8
+(anonymous) @ authStore.js:39
+(anonymous) @ AuthPage.jsx:72
+callCallback2 @ chunk-NUMECXU6.js?v=ccb33e42:3674
+invokeGuardedCallbackDev @ chunk-NUMECXU6.js?v=ccb33e42:3699
+invokeGuardedCallback @ chunk-NUMECXU6.js?v=ccb33e42:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-NUMECXU6.js?v=ccb33e42:3736
+executeDispatch @ chunk-NUMECXU6.js?v=ccb33e42:7014
+processDispatchQueueItemsInOrder @ chunk-NUMECXU6.js?v=ccb33e42:7034
+processDispatchQueue @ chunk-NUMECXU6.js?v=ccb33e42:7043
+dispatchEventsForPlugins @ chunk-NUMECXU6.js?v=ccb33e42:7051
+(anonymous) @ chunk-NUMECXU6.js?v=ccb33e42:7174
+batchedUpdates$1 @ chunk-NUMECXU6.js?v=ccb33e42:18913
+batchedUpdates @ chunk-NUMECXU6.js?v=ccb33e42:3579
+dispatchEventForPluginEventSystem @ chunk-NUMECXU6.js?v=ccb33e42:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-NUMECXU6.js?v=ccb33e42:5478
+dispatchEvent @ chunk-NUMECXU6.js?v=ccb33e42:5472
+dispatchDiscreteEvent @ chunk-NUMECXU6.js?v=ccb33e42:5449
+authStore.js:39  POST http://localhost:5173/api/v1/auth/register-email 500 (Internal Server Error)
+dispatchXhrRequest @ axios.js?v=ccb33e42:2104
+xhr @ axios.js?v=ccb33e42:1964
+dispatchRequest @ axios.js?v=ccb33e42:2805
+Promise.then
+_request @ axios.js?v=ccb33e42:3043
+request @ axios.js?v=ccb33e42:2926
+httpMethod @ axios.js?v=ccb33e42:3091
+wrap @ axios.js?v=ccb33e42:8
+(anonymous) @ authStore.js:39
+(anonymous) @ AuthPage.jsx:72
+callCallback2 @ chunk-NUMECXU6.js?v=ccb33e42:3674
+invokeGuardedCallbackDev @ chunk-NUMECXU6.js?v=ccb33e42:3699
+invokeGuardedCallback @ chunk-NUMECXU6.js?v=ccb33e42:3733
+invokeGuardedCallbackAndCatchFirstError @ chunk-NUMECXU6.js?v=ccb33e42:3736
+executeDispatch @ chunk-NUMECXU6.js?v=ccb33e42:7014
+processDispatchQueueItemsInOrder @ chunk-NUMECXU6.js?v=ccb33e42:7034
+processDispatchQueue @ chunk-NUMECXU6.js?v=ccb33e42:7043
+dispatchEventsForPlugins @ chunk-NUMECXU6.js?v=ccb33e42:7051
+(anonymous) @ chunk-NUMECXU6.js?v=ccb33e42:7174
+batchedUpdates$1 @ chunk-NUMECXU6.js?v=ccb33e42:18913
+batchedUpdates @ chunk-NUMECXU6.js?v=ccb33e42:3579
+dispatchEventForPluginEventSystem @ chunk-NUMECXU6.js?v=ccb33e42:7173
+dispatchEventWithEnableCapturePhaseSelectiveHydrationWithoutDiscreteEventReplay @ chunk-NUMECXU6.js?v=ccb33e42:5478
+dispatchEvent @ chunk-NUMECXU6.js?v=ccb33e42:5472
+dispatchDiscreteEvent @ chunk-NUMECXU6.js?v=ccb33e42:5449

@@ -183,15 +183,17 @@ const registerWithEmail = async (fullName, email, phone, password, ip = null) =>
     throw new AppError('Email already registered', 409, 'EMAIL_EXISTS');
   }
 
-  const existingPhone = await userModel.findByPhone(phone);
-  if (existingPhone) {
-    throw new AppError('Phone already registered', 409, 'PHONE_EXISTS');
+  if (phone) {
+    const existingPhone = await userModel.findByPhone(phone);
+    if (existingPhone) {
+      throw new AppError('Phone already registered', 409, 'PHONE_EXISTS');
+    }
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
   const user = await userModel.create({
-    phone,
+    phone: phone || null,
     email,
     full_name: fullName,
     password_hash: passwordHash,

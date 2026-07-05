@@ -18,9 +18,8 @@ const registerEmailSchema = Joi.object({
     'string.email': 'البريد الإلكتروني غير صحيح',
     'any.required': 'البريد الإلكتروني مطلوب',
   }),
-  phone: Joi.string().pattern(phonePattern).required().messages({
+  phone: Joi.string().pattern(phonePattern).optional().allow('').empty('').messages({
     'string.pattern.base': 'رقم الهاتف يجب أن يكون يمنياً (967XXXXXXXXX)',
-    'any.required': 'رقم الهاتف مطلوب',
   }),
   password: Joi.string().min(8).max(128).required().messages({
     'string.min': 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',

@@ -190,7 +190,7 @@ export default function ClientLayout() {
                     دخول
                   </Link>
                   <Link 
-                    to="/login"
+                    to="/register"
                     className="bg-primary-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-primary-600 hover:-translate-y-0.5 transition-all duration-300 shadow-md shadow-primary-500/20"
                   >
                     التسجيل
@@ -274,7 +274,7 @@ export default function ClientLayout() {
                   <Link to="/login" className="block text-center font-bold text-navy-900 py-3 bg-navy-50 rounded-xl">
                     تسجيل الدخول
                   </Link>
-                  <Link to="/login" className="block text-center text-white bg-primary-500 py-3 rounded-xl font-bold shadow-md shadow-primary-500/20">
+                  <Link to="/register" className="block text-center text-white bg-primary-500 py-3 rounded-xl font-bold shadow-md shadow-primary-500/20">
                     ابدأ التسجيل الآن
                   </Link>
                 </div>

@@ -92,7 +92,7 @@ export default function HomePage() {
           <AnimatedSection animation="up" delay={700}>
             <div className="flex flex-col sm:flex-row justify-center gap-6">
               <Link
-                to="/login"
+                to="/register"
                 className="group relative px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl text-lg font-bold shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 transition-all duration-300 transform hover:-translate-y-1 overflow-hidden animate-pulse-glow"
               >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out"></div>
@@ -282,7 +282,7 @@ export default function HomePage() {
                 <AnimatedSection animation="up" delay={400}>
                   <div>
                     <Link
-                      to="/login"
+                      to="/register"
                       className="group/btn inline-flex items-center justify-center px-10 py-5 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-xl text-xl font-bold shadow-xl shadow-gold-500/30 hover:shadow-gold-500/50 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
                     >
                       <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-in-out"></div>
